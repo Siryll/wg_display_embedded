@@ -2,6 +2,9 @@
 debug/
 target/
 
+# Env file for wifi credentials (before config is implemented)
+.env
+
 # Editor configuration
 .vscode/
 .zed/
