@@ -13,7 +13,6 @@ use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println as _;
-use esp_hal::psram;
 
 mod wifi;
 use crate::wifi::Wifi;
@@ -21,16 +20,14 @@ use crate::wifi::Wifi;
 mod display;
 use crate::display::Display;
 
-use embedded_graphics::pixelcolor::{PixelColor, Rgb565};
-use embedded_graphics::prelude::{DrawTarget, RgbColor, Point};
+use embedded_graphics::pixelcolor::Rgb565;
+use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::{
-            mono_font::{ascii::FONT_8X13, MonoTextStyle},
-            text::Text,
-        };
-
-use embedded_graphics::{
-    Drawable,
+    mono_font::{MonoTextStyle, ascii::FONT_8X13},
+    text::Text,
 };
+
+use embedded_graphics::Drawable;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -74,12 +71,12 @@ async fn main(spawner: Spawner) -> ! {
         peripherals.GPIO48,
     );
     Text::new(
-            "Hello ESP32!",
-            Point::new(100, 60),
-            MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-        )
-        .draw(display.display_mut())
-        .unwrap();
+        "Hello ESP32!",
+        Point::new(100, 60),
+        MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
+    )
+    .draw(display.display_mut())
+    .unwrap();
 
     // -- Wifi setup --
     let ssid: alloc::string::String = alloc::string::String::from("ssid");
