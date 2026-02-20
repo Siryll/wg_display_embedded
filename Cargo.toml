@@ -9,7 +9,7 @@ name = "embedded_wg_display"
 # path = "./src/bin/main.rs"
 
 [dependencies]
-esp-hal = { version = "~1.0", features = ["defmt", "esp32s3", "unstable"] }
+esp-hal = { version = "~1.0", features = ["defmt", "esp32s3", "unstable", "psram"] }
 
 esp-rtos = { version = "0.2.0", features = [
   "defmt",
@@ -61,6 +61,11 @@ smoltcp = { version = "0.12.0", default-features = false, features = [
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
 
+# might be able to enable more features, needs testing
+embedded-hal-bus = { version = "0.3.0" }
+mipidsi = { version = "0.10.0" }
+embedded-graphics = { version = "0.8.2"  }
+embedded-graphics-framebuf = "0.5.0"
 
 [profile.dev]
 # Rust debug is too slow.

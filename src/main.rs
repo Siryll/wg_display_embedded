@@ -17,6 +17,18 @@ use esp_println as _;
 mod wifi;
 use crate::wifi::Wifi;
 
+mod display;
+use crate::display::Display;
+
+use embedded_graphics::pixelcolor::Rgb565;
+use embedded_graphics::prelude::{Point, RgbColor};
+use embedded_graphics::{
+    mono_font::{MonoTextStyle, ascii::FONT_8X13},
+    text::Text,
+};
+
+use embedded_graphics::Drawable;
+
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
@@ -40,18 +52,38 @@ async fn main(spawner: Spawner) -> ! {
     let peripherals = esp_hal::init(config);
 
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
+    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
     info!("Embassy initialized!");
 
+    // -- Display setup --
+    let mut display = Display::new(
+        peripherals.SPI2,
+        peripherals.DMA_CH0,
+        peripherals.GPIO4,
+        peripherals.GPIO5,
+        peripherals.GPIO6,
+        peripherals.GPIO7,
+        peripherals.GPIO47,
+        peripherals.GPIO48,
+    );
+    Text::new(
+        "Hello ESP32!",
+        Point::new(100, 60),
+        MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
+    )
+    .draw(display.display_mut())
+    .unwrap();
+
+    // -- Wifi setup --
     let ssid: alloc::string::String = alloc::string::String::from("ssid");
     let password: alloc::string::String = alloc::string::String::from("pw");
 
     let wifi = Wifi::start_station(peripherals.WIFI, &spawner, ssid, password);
     wifi.wait_for_connection().await;
-
     // TODO: Spawn some tasks
     let _ = spawner;
 
