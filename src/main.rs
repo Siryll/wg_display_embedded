@@ -15,7 +15,7 @@ use esp_hal::timer::timg::TimerGroup;
 use esp_println as _;
 
 mod wifi;
-use crate::wifi::wifi::Wifi;
+use crate::wifi::Wifi;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -48,7 +48,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let ssid: alloc::string::String = alloc::string::String::from("ssid");
     let password: alloc::string::String = alloc::string::String::from("pw");
-    
+
     let wifi = Wifi::start_station(peripherals.WIFI, &spawner, ssid, password);
     wifi.wait_for_connection().await;
 
