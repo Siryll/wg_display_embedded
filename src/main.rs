@@ -14,6 +14,9 @@ use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println as _;
 
+mod wifi;
+use crate::wifi::Wifi;
+
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
@@ -43,10 +46,11 @@ async fn main(spawner: Spawner) -> ! {
 
     info!("Embassy initialized!");
 
-    let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
-    let (mut _wifi_controller, _interfaces) =
-        esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
-            .expect("Failed to initialize Wi-Fi controller");
+    let ssid: alloc::string::String = alloc::string::String::from("ssid");
+    let password: alloc::string::String = alloc::string::String::from("pw");
+
+    let wifi = Wifi::start_station(peripherals.WIFI, &spawner, ssid, password);
+    wifi.wait_for_connection().await;
 
     // TODO: Spawn some tasks
     let _ = spawner;
