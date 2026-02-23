@@ -20,6 +20,8 @@ use crate::wifi::Wifi;
 mod display;
 use crate::display::Display;
 
+mod runtime;
+
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::{

@@ -66,6 +66,7 @@ embedded-hal-bus = { version = "0.3.0" }
 mipidsi = { version = "0.10.0" }
 embedded-graphics = { version = "0.8.2"  }
 embedded-graphics-framebuf = "0.5.0"
+wasmtime = { version = "41.0.3", default-features = false, features = ["runtime", "component-model", "pulley"] }
 
 [profile.dev]
 # Rust debug is too slow.
