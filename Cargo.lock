@@ -651,12 +651,15 @@ dependencies = [
  "embedded-hal-bus",
  "embedded-io 0.7.1",
  "embedded-io-async 0.7.0",
+ "embedded-storage",
  "esp-alloc",
  "esp-bootloader-esp-idf",
  "esp-hal",
+ "esp-nvs",
  "esp-println",
  "esp-radio",
  "esp-rtos",
+ "esp-storage",
  "mipidsi",
  "smoltcp",
  "static_cell",
@@ -816,6 +819,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a93e39c8ad8d390d248dc7b9f4b59a873f313bf535218b8e2351356972399e3"
 
 [[package]]
+name = "esp-nvs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14136d6d8690464e3ffe596634b45d21a3ae2314060da520994b68c74b9ab6b1"
+dependencies = [
+ "defmt 1.0.1",
+ "embedded-storage",
+ "esp-hal",
+ "esp-storage",
+ "strum",
+ "thiserror",
+]
+
+[[package]]
 name = "esp-phy"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -932,6 +949,22 @@ dependencies = [
  "esp-radio-rtos-driver",
  "esp-sync",
  "portable-atomic",
+]
+
+[[package]]
+name = "esp-storage"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1495fc1f5549bdd840b52d9ceb201746200e1620d2636f46958c11e765623b80"
+dependencies = [
+ "defmt 1.0.1",
+ "document-features",
+ "embedded-storage",
+ "esp-hal",
+ "esp-hal-procmacros",
+ "esp-metadata-generated",
+ "esp-rom-sys",
+ "esp-sync",
 ]
 
 [[package]]
