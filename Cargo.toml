@@ -19,7 +19,7 @@ esp-rtos = { version = "0.2.0", features = [
   "esp32s3",
 ] }
 
-defmt                  = "1.0.1"
+defmt = {version = "1.0.1"} 
 esp-bootloader-esp-idf = { version = "0.4.0", features = ["defmt", "esp32s3"] }
 
 embassy-net = { version = "0.7.1", features = [
@@ -66,11 +66,18 @@ embedded-hal-bus = { version = "0.3.0" }
 mipidsi = { version = "0.10.0" }
 embedded-graphics = { version = "0.8.2"  }
 embedded-graphics-framebuf = "0.5.0"
+esp-storage = {version = "0.8.1", features = ["defmt", "esp32s3"]}
+embedded-storage = {version = "0.3.1"}
+esp-nvs = {version = "0.2.0", features = ["defmt", "esp32s3"]}
 
 [profile.dev]
 # Rust debug is too slow.
 # For debug builds always builds with some optimization
 opt-level = "s"
+
+# use custom partition table
+# [package.metadata.espflash]
+# partition_table = "partitions.csv"
 
 [profile.release]
 codegen-units    = 1     # LLVM can perform better optimizations using a single thread

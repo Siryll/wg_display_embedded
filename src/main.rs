@@ -20,6 +20,9 @@ use crate::wifi::Wifi;
 mod display;
 use crate::display::Display;
 
+mod storage;
+use crate::storage::Storage;
+
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::{
@@ -59,6 +62,13 @@ async fn main(spawner: Spawner) -> ! {
 
     info!("Embassy initialized!");
 
+    // -- Storage setup --
+    let mut storage = Storage::new(peripherals.FLASH).expect("Failed to initialize storage");
+
+    // Set ssid and pw on first compile, until configuration via UI is possible
+    // storage.config_set("ssid", "").expect("Failed to write config");
+    // storage.config_set("pw", "").expect("Failed to write config");
+
     // -- Display setup --
     let mut display = Display::new(
         peripherals.SPI2,
@@ -79,8 +89,8 @@ async fn main(spawner: Spawner) -> ! {
     .unwrap();
 
     // -- Wifi setup --
-    let ssid: alloc::string::String = alloc::string::String::from("ssid");
-    let password: alloc::string::String = alloc::string::String::from("pw");
+    let ssid = storage.config_get("ssid").unwrap();
+    let password = storage.config_get("pw").unwrap();
 
     let wifi = Wifi::start_station(peripherals.WIFI, &spawner, ssid, password);
     wifi.wait_for_connection().await;
