@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use defmt::{info, warn};
 use embassy_net::{
     Stack,
@@ -20,35 +21,27 @@ impl EspHttpClient {
         Self { stack, tls_seed }
     }
 
-    pub async fn get(&self, url: &str) -> Result<heapless::Vec<u8, 4096>, &'static str> {
+    pub async fn get(&self, url: &str) -> Result<Vec<u8>, &'static str> {
         self.request(reqwless::request::Method::GET, url, None)
             .await
     }
 
-    pub async fn post(
-        &self,
-        url: &str,
-        body: Option<&[u8]>,
-    ) -> Result<heapless::Vec<u8, 4096>, &'static str> {
+    pub async fn post(&self, url: &str, body: Option<&[u8]>) -> Result<Vec<u8>, &'static str> {
         self.request(reqwless::request::Method::POST, url, body)
             .await
     }
 
-    pub async fn put(
-        &self,
-        url: &str,
-        body: Option<&[u8]>,
-    ) -> Result<heapless::Vec<u8, 4096>, &'static str> {
+    pub async fn put(&self, url: &str, body: Option<&[u8]>) -> Result<Vec<u8>, &'static str> {
         self.request(reqwless::request::Method::PUT, url, body)
             .await
     }
 
-    pub async fn delete(&self, url: &str) -> Result<heapless::Vec<u8, 4096>, &'static str> {
+    pub async fn delete(&self, url: &str) -> Result<Vec<u8>, &'static str> {
         self.request(reqwless::request::Method::DELETE, url, None)
             .await
     }
 
-    pub async fn head(&self, url: &str) -> Result<heapless::Vec<u8, 4096>, &'static str> {
+    pub async fn head(&self, url: &str) -> Result<Vec<u8>, &'static str> {
         self.request(reqwless::request::Method::HEAD, url, None)
             .await
     }
@@ -58,7 +51,7 @@ impl EspHttpClient {
         method: reqwless::request::Method,
         url: &str,
         body: Option<&[u8]>,
-    ) -> Result<heapless::Vec<u8, 4096>, &'static str> {
+    ) -> Result<Vec<u8>, &'static str> {
         // buffers
         let mut rx_buffer = [0u8; 4096];
         let mut tx_buffer = [0u8; 4096];
@@ -105,11 +98,8 @@ impl EspHttpClient {
             .await
             .map_err(|_| "Failed to read response body")?;
 
-        // Convert to heapless::Vec for safe return
-        let mut result = heapless::Vec::new();
-        for byte in body_bytes {
-            result.push(*byte).map_err(|_| "Response too large")?;
-        }
+        // Convert to Vec (uses heap allocation)
+        let result = body_bytes.to_vec();
 
         Ok(result)
     }

@@ -73,6 +73,7 @@ embedded-storage = {version = "0.3.1"}
 esp-nvs = {version = "0.2.0", features = ["defmt", "esp32s3"]}
 reqwless = { version = "0.14.0", default-features = false, features = [
   "embedded-tls",
+  "alloc",
 ] }
 # embedded-tls = { version = "0.18.0", default-features = false, features = ["defmt"] }
 # picoserve = { git="https://github.com/sammhicks/picoserve.git", branch="development", features = ["embassy","defmt","json"] }

@@ -73,10 +73,7 @@ impl Wifi {
         spawner.spawn(connection(controller)).ok();
         spawner.spawn(net_task(runner)).ok();
 
-        Self {
-            stack,
-            tls_seed,
-        }
+        Self { stack, tls_seed }
     }
 
     pub fn stack(&self) -> Stack<'static> {
