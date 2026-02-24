@@ -23,6 +23,9 @@ use crate::display::Display;
 mod storage;
 use crate::storage::Storage;
 
+mod http_client;
+use crate::http_client::EspHttpClient;
+
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::{
@@ -94,12 +97,24 @@ async fn main(spawner: Spawner) -> ! {
 
     let wifi = Wifi::start_station(peripherals.WIFI, &spawner, ssid, password);
     wifi.wait_for_connection().await;
+
+    // -- HTTP client setup --
+    let http_client = EspHttpClient::new(wifi.stack(), wifi.tls_seed());
+    let response = http_client
+        .get("https://jsonplaceholder.typicode.com/posts/1")
+        .await
+        .expect("Failed to make GET request");
+    match core::str::from_utf8(&response) {
+        Ok(s) => info!("Response: {}", s),
+        Err(_) => info!("Response: [binary data, {} bytes]", response.len()),
+    }
+
     // TODO: Spawn some tasks
     let _ = spawner;
 
     loop {
         info!("Hello world!");
-        Timer::after(Duration::from_secs(1)).await;
+        Timer::after(Duration::from_secs(10)).await;
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples

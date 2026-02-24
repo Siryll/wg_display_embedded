@@ -4,10 +4,6 @@ use esp_hal::peripherals::FLASH;
 use esp_nvs::{Key, Nvs, error::Error as NvsError};
 use esp_storage::{FlashStorage, FlashStorageError};
 
-/// Storage abstraction using NVS for both config data and WASM binaries.
-/// Uses a single NVS partition with multiple namespaces:
-/// - "config": System configuration key-value pairs  
-/// - "wasm": WASM binaries stored as blobs with keys like "slot_0", "slot_1", etc.
 pub struct Storage<'d> {
     nvs: Nvs<FlashStorage<'d>>,
 }
