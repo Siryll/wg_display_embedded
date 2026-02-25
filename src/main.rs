@@ -28,6 +28,8 @@ use crate::storage::Storage;
 mod http_client;
 use crate::http_client::EspHttpClient;
 
+mod runtime;
+
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::{
