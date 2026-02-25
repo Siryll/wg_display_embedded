@@ -113,6 +113,9 @@ async fn main(spawner: Spawner) -> ! {
         Err(_) => info!("Response: [binary data, {} bytes]", response.len()),
     }
 
+    // -- Server setup --
+    http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+
     // TODO: Spawn some tasks
     let _ = spawner;
 
