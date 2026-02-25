@@ -3,11 +3,11 @@ use embassy_time::Duration;
 use esp_alloc as _;
 use picoserve::{
     AppBuilder, AppRouter, Router, 
-    response::File, 
-    routing
+    response::{File, IntoResponse, Json}, 
+    routing::{self, parse_path_segment}
 };
 use embassy_executor::Spawner;
-use defmt::info;
+use defmt::{info, warn};
 
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 
@@ -21,7 +21,73 @@ impl AppBuilder for Application {
             "/",
             routing::get_service(File::html(include_str!("test.html"))),
         )
+        .route("/get_store_items", routing::get(get_store_items))
+        .route("/install_widget", routing::post(post_install_widget))
+        .route("system_config", routing::post(post_system_config))
+        .route("/system_config", routing::get(get_system_config))
+        // "/deinstall_widget/<widget_name>"
+        .route(
+            ("/deinstall_widget", parse_path_segment::<alloc::string::String>()),
+            routing::get(deinstall_widget)
+        )
+        // "/config_schema/<widget_name>"
+        .route(
+            ("/config_schema", parse_path_segment::<alloc::string::String>()), 
+            routing::get(get_config_schema)
+        )
+        // "/widget_configuration/<widget_name>"
+        .route(
+            ("/widget_config", parse_path_segment::<alloc::string::String>()), 
+            routing::post(post_widget_config)
+        )
+        // "/widget_configuration/<widget_name>"
+        .route(
+            ("/widget_configuration", parse_path_segment::<alloc::string::String>()), 
+            routing::get(get_widget_config)
+        )
     }
+}
+
+// endpoint implementations (stubs until common is implemented)
+
+async fn get_store_items() -> impl IntoResponse {
+    warn!("get_store_items endpoint called, not yet implemented");
+    "Not implemented yet"
+}
+
+async fn get_system_config() -> impl IntoResponse {
+    warn!("get_system_config endpoint called, not yet implemented");
+    "Not implemented yet"
+}
+
+async fn post_install_widget() -> impl IntoResponse {
+    warn!("install_widget endpoint called, not yet implemented");
+    "Not implemented yet"
+}
+
+async fn post_system_config() -> impl IntoResponse {
+    warn!("post_system_config endpoint called, not yet implemented");
+    "Not implemented yet"
+}
+
+async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoResponse {
+    warn!("deinstall_widget endpoint called for widget {}, not yet implemented", widget_name.as_str());
+    "Not implemented yet"
+}
+
+async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoResponse {
+    warn!("get_config_schema endpoint called for widget {}, not yet implemented", widget_name.as_str());
+    "Not implemented yet"
+}
+
+async fn post_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
+    warn!("post_widget_config endpoint called for widget {}, not yet implemented", widget_name.as_str());
+    "Not implemented yet"
+}
+
+async fn get_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
+    warn!("get_widget_config endpoint called for widget {}, not yet implemented", widget_name.as_str());
+    "Not implemented yet"
 }
 
 pub struct WebApp {
