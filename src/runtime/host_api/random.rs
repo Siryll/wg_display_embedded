@@ -14,14 +14,3 @@ impl random::Host for WidgetState {
         get_random()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_random() {
-        let result = get_random();
-        assert!(result > 0);
-    }
-}

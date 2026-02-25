@@ -28,8 +28,6 @@ use crate::storage::Storage;
 mod http_client;
 use crate::http_client::EspHttpClient;
 
-mod runtime;
-
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::{
@@ -104,6 +102,8 @@ async fn main(spawner: Spawner) -> ! {
 
     // -- HTTP client setup --
     let http_client = EspHttpClient::new(wifi.stack(), wifi.tls_seed());
+    
+    // Test HTTP request
     let response = http_client
         .get("https://jsonplaceholder.typicode.com/posts/1")
         .await
@@ -112,6 +112,21 @@ async fn main(spawner: Spawner) -> ! {
         Ok(s) => info!("Response: {}", s),
         Err(_) => info!("Response: [binary data, {} bytes]", response.len()),
     }
+
+    // Spawn HTTP worker task for WASM runtime
+    // This handles async HTTP requests from synchronous WASM host functions
+    spawner.spawn(runtime::http_bridge::http_worker_task(http_client.clone()))
+        .expect("Failed to spawn HTTP worker task");
+    info!("HTTP worker task spawned");
+
+    // -- Runtime setup --
+    let mut runtime = runtime::Runtime::new();
+    unsafe {
+        let component = runtime.load_module(include_bytes!("../../wasm-tools/wiget.compiled")).expect("Failed to load WASM module");
+        let widget = runtime.instantiate(&component).expect("Failed to instantiate component");
+        runtime.run(&widget).expect("Failed to run widget");
+    }
+    
 
     // TODO: Spawn some tasks
     let _ = spawner;

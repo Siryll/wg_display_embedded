@@ -68,7 +68,6 @@ embedded-hal-bus = { version = "0.3.0" }
 mipidsi = { version = "0.10.0" }
 embedded-graphics = { version = "0.8.2"  }
 embedded-graphics-framebuf = "0.5.0"
-wasmtime = { version = "41.0.3", default-features = false, features = ["runtime", "component-model", "pulley"] }
 esp-storage = {version = "0.8.1", features = ["defmt", "esp32s3"]}
 embedded-storage = {version = "0.3.1"}
 esp-nvs = {version = "0.2.0", features = ["defmt", "esp32s3"]}
@@ -85,7 +84,9 @@ heapless = { version = "0.9.2", features = ["serde"] }
 # See: https://github.com/drogue-iot/embedded-tls/issues/181
 # The stable der v0.8.0 broke API compatibility, force use of RC version
 der = { version = "=0.8.0-rc.10", features = ["derive", "oid", "time", "heapless"] }
+# Wasmtime 41+ required for Pulley interpreter (Xtensa architecture support)
 wasmtime = { version = "41.0.3", default-features = false, features = ["runtime", "component-model", "pulley"] }
+embassy-sync = { version = "0.7.2", features = ["defmt"] }
 
 [profile.dev]
 # Rust debug is too slow.

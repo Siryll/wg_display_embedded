@@ -4,16 +4,19 @@ mod platform;
 
 mod host_api;
 
+pub mod http_bridge;
+
+use crate::http_client::EspHttpClient;
+use embassy_net::Stack;
+
 use alloc::vec::Vec;
-use wasmtime::{Config, Engine, Instance, Module, Store, Result};
-use wasmtime::component::Component;
-use wasmtime::component::Linker;
+use wasmtime::{Config, Engine, Store, Result};
+use wasmtime::component::{Component, Linker, HasSelf};
 
 // links wit finctions, implementations in host_api
 wasmtime::component::bindgen!({ path: "../wg_display/wg_display_widget_wit/wit" });
 
 pub struct WidgetState {
-    // Data fields usable in the host API functions
 }
 
 impl WidgetState {
@@ -30,8 +33,8 @@ pub struct CompiledModule {
 
 pub struct Runtime {
     engine: Engine,
-    linker: Linker<(WidgetState)>,
-    store: Store<(WidgetState)>,
+    linker: Linker<WidgetState>,
+    store: Store<WidgetState>,
     last_run: alloc::collections::BTreeMap<u32, u64>,
 }
 
@@ -58,11 +61,11 @@ impl Runtime {
         let engine = Engine::new(&config)
             .expect("Failed to create Wasmtime engine");
         
-        let linker = Linker::<WidgetState>::new(&engine);
-
         let store = Store::new(&engine, WidgetState::new());
 
-        Widget::add_to_linker(&mut linker, |state: &mut WidgetState| state)
+        let mut linker = Linker::<WidgetState>::new(&engine);
+        // Use the HasSelf wrapper type for component model
+        Widget::add_to_linker::<WidgetState, HasSelf<WidgetState>>(&mut linker, |state: &mut WidgetState| state)
             .expect("Could not link host API");
         
         defmt::info!("Wasmtime runtime initialized successfully");
@@ -83,11 +86,19 @@ impl Runtime {
     pub fn instantiate(&mut self, component: &Component) -> Result<Widget> {
         defmt::debug!("Instantiating component");
         
-        // let instance = self.linker.instantiate(&mut self.store, module)?;
         let widget = Widget::instantiate(&mut self.store, component, &self.linker)?;
         
         defmt::info!("Component instantiated successfully");
         Ok(widget)
+    }
+
+    pub fn run(&mut self, widget: &Widget) -> Result<()> {
+        defmt::debug!("Running widget");
+        
+        let name = widget.call_get_name(&mut self.store)?;
+        
+        defmt::info!("Widget ran successfully name: {}", name.as_str());
+        Ok(())
     }
 
     pub fn engine(&self) -> &Engine {
@@ -95,8 +106,11 @@ impl Runtime {
     }
 }
 
-impl Default for Runtime {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for Runtime {
+//     fn default() -> Self {
+//         // Provide default values for stack and tls_seed
+//         let stack = Stack::new();
+//         let tls_seed = 0;
+//         Self::new(stack, tls_seed)
+//     }
+// }
