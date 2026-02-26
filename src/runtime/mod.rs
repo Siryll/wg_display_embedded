@@ -44,8 +44,8 @@ impl Runtime {
         
         let mut config = Config::new();
         config.wasm_component_model(true);
-        
-        // disable many optional features: https://github.com/bytecodealliance/wasmtime/blob/main/examples/min-platform/embedding/wasmtime-platform.h
+    
+    // disable many optional features: https://github.com/bytecodealliance/wasmtime/blob/main/examples/min-platform/embedding/wasmtime-platform.h
         config.wasm_bulk_memory(false);
         config.wasm_simd(false);
         config.wasm_relaxed_simd(false);
@@ -53,8 +53,11 @@ impl Runtime {
         config.gc_support(false);
 
         config.signals_based_traps(false);
+        config.wasm_multi_value(false);
+        // config.wasm_reference_types(false);
+        config.wasm_tail_call(false);
         
-        config.memory_reservation(0);
+        config.memory_reservation(2560 * 1024);
         config.memory_guard_size(0);
         config.memory_init_cow(false);
         
@@ -77,7 +80,13 @@ impl Runtime {
         defmt::debug!("Loading precompiled module ({} bytes)", bytes.len());
         
         // consideret only safe if compiled on device
-        let component = unsafe { Component::deserialize(&self.engine, bytes) }?;
+        let component = match unsafe { Component::deserialize(&self.engine, bytes) } {
+            Ok(component) => component,
+            Err(err) => {
+                defmt::error!("Failed to deserialize component: {:?}", defmt::Debug2Format(&err));
+                return Err(err);
+            }
+        };
         
         defmt::info!("Module loaded successfully");
         Ok(component)
@@ -86,7 +95,13 @@ impl Runtime {
     pub fn instantiate(&mut self, component: &Component) -> Result<Widget> {
         defmt::debug!("Instantiating component");
         
-        let widget = Widget::instantiate(&mut self.store, component, &self.linker)?;
+        let widget = match Widget::instantiate(&mut self.store, component, &self.linker) {
+            Ok(widget) => widget,
+            Err(err) => {
+                defmt::error!("Failed to instantiate component: {:?}", defmt::Debug2Format(&err));
+                return Err(err);
+            }
+        };
         
         defmt::info!("Component instantiated successfully");
         Ok(widget)
@@ -95,7 +110,13 @@ impl Runtime {
     pub fn run(&mut self, widget: &Widget) -> Result<()> {
         defmt::debug!("Running widget");
         
-        let name = widget.call_get_name(&mut self.store)?;
+        let name = match widget.call_get_name(&mut self.store) {
+            Ok(name) => name,
+            Err(err) => {
+                defmt::error!("Failed to run widget: {:?}", defmt::Debug2Format(&err));
+                return Err(err);
+            }
+        };
         
         defmt::info!("Widget ran successfully name: {}", name.as_str());
         Ok(())
