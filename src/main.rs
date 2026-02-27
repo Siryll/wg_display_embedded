@@ -123,9 +123,14 @@ async fn main(spawner: Spawner) -> ! {
     info!("Initializing Wasmtime runtime");
     let mut runtime = runtime::Runtime::new();
     unsafe {
-        let component = runtime.load_module(include_bytes!("../../wasm-tools/widget_tests/test_widget_unknown_component.compiled")).expect("Failed to load WASM module");
+        let component = runtime.load_module(include_bytes!("../../wasm-tools/widget_tests/test_widget.compiled")).expect("Failed to load WASM module");
         let widget = runtime.instantiate(&component).expect("Failed to instantiate component");
-        runtime.run(&widget).expect("Failed to run widget");
+        // runtime.run(&widget).expect("Failed to run widget");
+        let name = runtime.get_widget_name(&widget).expect("Failed to get widget name");
+        info!("Widget name: {}", name.as_str());
+
+        runtime.run(&widget).await.expect("Failed to run widget");
+        info!("Widget execution completed");
     }
     
 

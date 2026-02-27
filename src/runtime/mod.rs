@@ -4,9 +4,16 @@ mod platform;
 
 mod host_api;
 
+use core::result;
+
 use alloc::vec::Vec;
 use wasmtime::{Config, Engine, Store, Result};
 use wasmtime::component::{Component, Linker, HasSelf};
+use embassy_executor::Spawner;
+
+use alloc::string::String;
+
+use crate::runtime::widget::widget::types::Datetime;
 
 // links wit finctions, implementations in host_api
 wasmtime::component::bindgen!({ path: "../wg_display/wg_display_widget_wit/wit" });
@@ -57,6 +64,7 @@ impl Runtime {
         // config.memory_reservation(0);
         config.memory_guard_size(0);
         config.memory_init_cow(false);
+        config.concurrency_support(false);
         
         let engine = Engine::new(&config)
             .expect("Failed to create Wasmtime engine");
@@ -104,19 +112,39 @@ impl Runtime {
         Ok(widget)
     }
 
-    pub fn run(&mut self, widget: &Widget) -> Result<()> {
+    pub async fn run(&mut self, widget: &Widget) -> Result<()> {
         defmt::debug!("Running widget");
+
+        let context = WidgetContext {
+            last_invocation: Datetime {
+                    seconds: 0,
+                    nanoseconds: 0,
+            },
+            config: "{}".into(),
+        };
         
-        let name = match widget.call_get_name(&mut self.store) {
-            Ok(name) => name,
+        let result = match widget.call_run(&mut self.store, &context) {
+            Ok(result) => result,
             Err(err) => {
                 defmt::error!("Failed to run widget: {:?}", defmt::Debug2Format(&err));
                 return Err(err);
             }
         };
         
-        defmt::info!("Widget ran successfully name: {}", name.as_str());
+        defmt::info!("Widget ran successfully result: {}", result.data.as_str());
         Ok(())
+    }
+
+    pub fn get_widget_name(&mut self, widget: &Widget) -> wasmtime::Result<String> {
+        widget.call_get_name(&mut self.store)
+    }
+
+    pub fn get_config_schema(&mut self, widget: &Widget) -> wasmtime::Result<String> {
+        widget.call_get_config_schema(&mut self.store)
+    }
+
+    pub fn get_widget_version(&mut self, widget: &Widget) -> wasmtime::Result<String> {
+        widget.call_get_version(&mut self.store)
     }
 
     pub fn engine(&self) -> &Engine {

@@ -26,11 +26,7 @@ impl http::Host for WidgetState {
                 http::Method::Delete => http_client.request(Method::DELETE, &url, None),
             };
             
-            // Add timeout and await the response
-            match embassy_time::with_timeout(Duration::from_secs(10), response_future).await {
-                Ok(result) => result.map_err(|_| ()), // Convert &str error to ()
-                Err(_) => Err(()), // Timeout error
-            }
+            response_future.await.map_err(|_| ())
         };
         
         // Block on the future using embassy_futures::block_on
