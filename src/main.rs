@@ -17,6 +17,8 @@ use esp_println as _;
 mod wifi;
 use crate::wifi::Wifi;
 
+mod common;
+
 mod display;
 use crate::display::Display;
 
