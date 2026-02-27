@@ -120,9 +120,10 @@ async fn main(spawner: Spawner) -> ! {
     info!("HTTP worker task spawned");
 
     // -- Runtime setup --
+    info!("Initializing Wasmtime runtime");
     let mut runtime = runtime::Runtime::new();
     unsafe {
-        let component = runtime.load_module(include_bytes!("../../wasm-tools/wiget.compiled")).expect("Failed to load WASM module");
+        let component = runtime.load_module(include_bytes!("../../wasm-tools/widget_tests/test_widget_unknown_component.compiled")).expect("Failed to load WASM module");
         let widget = runtime.instantiate(&component).expect("Failed to instantiate component");
         runtime.run(&widget).expect("Failed to run widget");
     }

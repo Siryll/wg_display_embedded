@@ -46,18 +46,20 @@ impl Runtime {
         config.wasm_component_model(true);
     
     // disable many optional features: https://github.com/bytecodealliance/wasmtime/blob/main/examples/min-platform/embedding/wasmtime-platform.h
-        config.wasm_bulk_memory(false);
+        config.wasm_bulk_memory(true);
         config.wasm_simd(false);
         config.wasm_relaxed_simd(false);
         config.wasm_multi_memory(false);
         config.gc_support(false);
 
         config.signals_based_traps(false);
+        // config.wasm_multi_value(true);
         config.wasm_multi_value(false);
-        // config.wasm_reference_types(false);
+        // config.wasm_tail_call(true);
         config.wasm_tail_call(false);
         
-        config.memory_reservation(2560 * 1024);
+        config.memory_reservation(0);
+        // config.memory_reservation(0);
         config.memory_guard_size(0);
         config.memory_init_cow(false);
         
