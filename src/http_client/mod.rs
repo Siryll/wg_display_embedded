@@ -46,7 +46,7 @@ impl EspHttpClient {
             .await
     }
 
-    async fn request(
+    pub async fn request(
         &self,
         method: reqwless::request::Method,
         url: &str,

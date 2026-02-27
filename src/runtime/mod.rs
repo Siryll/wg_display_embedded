@@ -4,11 +4,6 @@ mod platform;
 
 mod host_api;
 
-pub mod http_bridge;
-
-use crate::http_client::EspHttpClient;
-use embassy_net::Stack;
-
 use alloc::vec::Vec;
 use wasmtime::{Config, Engine, Store, Result};
 use wasmtime::component::{Component, Linker, HasSelf};

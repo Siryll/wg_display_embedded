@@ -37,6 +37,7 @@ esp-println = { version = "0.16.1", features = ["defmt-espflash", "esp32s3"] }
 # for more networking protocol support see https://crates.io/crates/edge-net
 embassy-executor = { version = "0.9.1", features = ["defmt"] }
 embassy-time = { version = "0.5.0", features = ["defmt"] }
+embassy-futures = { version = "0.1.2" }
 esp-radio = { version = "0.17.0", features = [
   "defmt",
   "esp-alloc",

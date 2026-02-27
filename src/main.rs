@@ -31,7 +31,6 @@ mod storage;
 use crate::storage::Storage;
 
 mod http_client;
-use crate::http_client::EspHttpClient;
 
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
@@ -119,12 +118,6 @@ async fn main(spawner: Spawner) -> ! {
         Ok(s) => info!("Response: {}", s),
         Err(_) => info!("Response: [binary data, {} bytes]", response.len()),
     }
-
-    // Spawn HTTP worker task for WASM runtime
-    // This handles async HTTP requests from synchronous WASM host functions
-    spawner.spawn(runtime::http_bridge::http_worker_task(http_client.clone()))
-        .expect("Failed to spawn HTTP worker task");
-    info!("HTTP worker task spawned");
 
     // -- Runtime setup --
     info!("Initializing Wasmtime runtime");
