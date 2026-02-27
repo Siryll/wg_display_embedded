@@ -10,7 +10,6 @@ use reqwless::{
     request::RequestBuilder,
 };
 
-#[derive(Clone, Copy)]
 pub struct EspHttpClient {
     stack: Stack<'static>,
     tls_seed: u64,
