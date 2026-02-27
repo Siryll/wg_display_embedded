@@ -84,6 +84,8 @@ der = { version = "0.8.0", features = ["derive", "oid", "time", "heapless"] }
 picoserve = { version = "0.18.0", features = ["embassy", "defmt", "json"] }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 serde-json-core = "0.6.0"
+embassy-sync = {version = "0.7.2", features = ["defmt"] }
+serde_json = {version = "1.0.149", default-features = false,features = ["alloc"] }
 
 [profile.dev]
 # Rust debug is too slow.

@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+use crate::common::models::{SystemConfiguration, WidgetInstallationData};
+use alloc::string::ToString;
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;
 use esp_hal::peripherals::FLASH;
@@ -69,6 +72,56 @@ impl<'d> Storage<'d> {
         Ok(Self { nvs })
     }
 
+    pub fn save_widget_config(
+        &mut self,
+        system_config: &SystemConfiguration,
+    ) -> Result<(), StorageError> {
+        let ns = Key::from_str("config");
+        let k = Key::from_str("system_config");
+        let value = serde_json::to_string(system_config)
+            .map_err(|_| StorageError::Nvs(NvsError::FlashError))?;
+        self.nvs.set(&ns, &k, value.as_str())?;
+        Ok(())
+    }
+
+    pub fn get_widget_config(&mut self) -> Result<SystemConfiguration, StorageError> {
+        let ns = Key::from_str("config");
+        let k = Key::from_str("system_config");
+        let value: alloc::string::String = self.nvs.get(&ns, &k)?;
+        let config: SystemConfiguration =
+            serde_json::from_str(&value).map_err(|_| StorageError::Nvs(NvsError::FlashError))?;
+        Ok(config)
+    }
+
+    pub fn save_compiled_widget(
+        &mut self,
+        name: &str,
+        description: &str,
+        version: &str,
+        json_config: &str,
+        data: &[u8],
+    ) -> Result<(), StorageError> {
+        self.wasm_write(name, data)?;
+        let mut config = self.get_widget_config()?;
+        config.widgets.push(WidgetInstallationData {
+            name: name.to_string(),
+            description: description.to_string(),
+            version: version.to_string(),
+            json_config: json_config.to_string(),
+        });
+        self.save_widget_config(&config)?;
+        Ok(())
+    }
+
+    pub fn deinstall_widget(&mut self, name: &str) -> Result<(), StorageError> {
+        self.wasm_read(name)?; // check if widget exists
+        self.wasm_write(name, &[])?; // remove widget data
+        let mut config = self.get_widget_config()?;
+        config.widgets.retain(|w| w.name != name);
+        self.save_widget_config(&config)?;
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub fn config_set(&mut self, key: &str, value: &str) -> Result<(), StorageError> {
         info!("Setting config for key '{}'", key);
@@ -101,5 +154,14 @@ impl<'d> Storage<'d> {
         let ns = Key::from_str("wasm");
         let k = Key::from_str(name);
         Ok(self.nvs.get(&ns, &k)?)
+    }
+
+    #[allow(dead_code)]
+    pub fn wasm_delete(&mut self, name: &str) -> Result<(), StorageError> {
+        info!("Deleting WASM binary with name: '{}'", name);
+        let ns = Key::from_str("wasm");
+        let k = Key::from_str(name);
+        self.nvs.delete(&ns, &k)?;
+        Ok(())
     }
 }

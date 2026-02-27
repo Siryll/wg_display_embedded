@@ -19,6 +19,9 @@ mod wifi;
 use crate::wifi::Wifi;
 
 mod common;
+mod util;
+mod widget;
+use crate::util::globals;
 
 mod display;
 use crate::display::Display;
@@ -27,7 +30,6 @@ mod storage;
 use crate::storage::Storage;
 
 mod http_client;
-use crate::http_client::EspHttpClient;
 
 mod http_server;
 use crate::http_server::WebApp;
@@ -72,7 +74,8 @@ async fn main(spawner: Spawner) -> ! {
     info!("Embassy initialized!");
 
     // -- Storage setup --
-    let mut storage = Storage::new(peripherals.FLASH).expect("Failed to initialize storage");
+    let storage = Storage::new(peripherals.FLASH).expect("Failed to initialize storage");
+    globals::init_storage(storage).await;
 
     // Set ssid and pw on first compile, until configuration via UI is possible
     // storage.config_set("ssid", "").expect("Failed to write config");
@@ -98,14 +101,17 @@ async fn main(spawner: Spawner) -> ! {
     .unwrap();
 
     // -- Wifi setup --
-    let ssid = storage.config_get("ssid").unwrap();
-    let password = storage.config_get("pw").unwrap();
+    let ssid = globals::with_storage(|storage| storage.config_get("ssid").unwrap()).await;
+    let password = globals::with_storage(|storage| storage.config_get("pw").unwrap()).await;
+    // let ssid = storage.config_get("ssid").unwrap();
+    // let password = storage.config_get("pw").unwrap();
 
     let wifi = Wifi::start_station(peripherals.WIFI, &spawner, ssid, password);
     wifi.wait_for_connection().await;
+    globals::init_network(wifi.stack(), wifi.tls_seed());
 
     // -- HTTP client setup --
-    let http_client = EspHttpClient::new(wifi.stack(), wifi.tls_seed());
+    let http_client = globals::http_client();
     let response = http_client
         .get("https://jsonplaceholder.typicode.com/posts/1")
         .await
