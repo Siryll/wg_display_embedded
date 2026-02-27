@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 // use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 // use yew::functional::Reducible;
-
+#[allow(dead_code)]
 /// The installation data of a widget
 #[derive(Deserialize, Serialize, Clone, PartialEq, Default, Debug)]
 pub struct WidgetInstallationData {
@@ -17,6 +17,7 @@ pub struct WidgetInstallationData {
     pub json_config: String,
 }
 
+#[allow(dead_code)]
 /// The system configuration.
 /// Stores all configuration that is not specific to one widget.
 #[derive(Deserialize, Serialize, Clone, PartialEq, Default, Debug)]
@@ -27,6 +28,7 @@ pub struct SystemConfiguration {
     pub widgets: Vec<WidgetInstallationData>,
 }
 
+#[allow(dead_code)]
 /// Stores the data needed for a widget installation
 #[derive(Deserialize, Serialize, Clone)]
 pub enum InstallAction {
@@ -34,6 +36,7 @@ pub enum InstallAction {
     FromStoreItemName(String),
 }
 
+#[allow(dead_code)]
 /// Represents the information associated with a widget in the store.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct WidgetStoreItem {
@@ -55,6 +58,7 @@ pub struct WidgetStoreItem {
 //     });
 // }
 
+#[allow(dead_code)]
 /// Actions that can be dispatched to the system configuration reducer.
 /// The reducer is responsible for updating and persisting the system configuration state.
 #[derive(PartialEq)]

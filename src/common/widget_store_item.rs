@@ -1,8 +1,9 @@
 use crate::common::models::WidgetStoreItem;
 
-use alloc::string::String;
 use alloc::format;
+use alloc::string::String;
 
+#[allow(dead_code)]
 impl WidgetStoreItem {
     pub fn new(name: String, description: String, repository: String) -> Self {
         Self {
