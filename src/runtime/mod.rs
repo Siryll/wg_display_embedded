@@ -4,12 +4,9 @@ mod platform;
 
 mod host_api;
 
-use core::result;
-
 use alloc::vec::Vec;
 use wasmtime::{Config, Engine, Store, Result};
 use wasmtime::component::{Component, Linker, HasSelf};
-use embassy_executor::Spawner;
 
 use alloc::string::String;
 
