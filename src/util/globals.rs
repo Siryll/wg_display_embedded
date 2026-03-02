@@ -74,10 +74,6 @@ pub fn tls_seed() -> u64 {
     unsafe { TLS_SEED.expect("Network not initialized! Call init_network() first") }
 }
 
-pub fn network_initialized() -> bool {
-    NETWORK_READY.load(Ordering::Acquire)
-}
-
 pub fn http_client() -> EspHttpClient {
     EspHttpClient::new(network_stack(), tls_seed())
 }
@@ -112,6 +108,7 @@ pub fn http_request_sync(
 
             let mut iterations = 0u32;
             let current_thread = CurrentThreadHandle::get();
+            const MAX_WAIT_ITERATIONS: u32 = 3000; // ~30s @ 10ms delay
 
             loop {
                 match HTTP_RESPONSE_CHANNEL.try_receive() {
@@ -121,6 +118,10 @@ pub fn http_request_sync(
                     }
                     Err(_) => {
                         iterations += 1;
+                        if iterations >= MAX_WAIT_ITERATIONS {
+                            error!("HTTP request timed out while waiting for handler response");
+                            return Err(());
+                        }
                         if iterations % 20 == 0 {
                             info!("Still waiting... iteration {}", iterations);
                         }
@@ -179,7 +180,13 @@ pub async fn http_handler_task() {
             http_client
                 .request(method, &request.url, request.body.as_deref())
                 .await
-                .map_err(|_| ())
+                .map_err(|e| {
+                    defmt::error!(
+                        "HTTP handler request failed: {:?}",
+                        defmt::Debug2Format(&e)
+                    );
+                    ()
+                })
         }.await;
         
         // Convert to WIT response type

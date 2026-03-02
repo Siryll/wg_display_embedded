@@ -5,7 +5,7 @@ mod platform;
 mod host_api;
 
 use alloc::vec::Vec;
-use wasmtime::{Config, Engine, Store, Result};
+use wasmtime::{Config, Engine, Store, Result, Precompiled};
 use wasmtime::component::{Component, Linker, HasSelf};
 
 use alloc::string::String;
@@ -23,7 +23,6 @@ impl WidgetState {
         Self {}
     }
 }
-
 
 pub struct CompiledModule {
     data: Vec<u8>,
@@ -80,6 +79,18 @@ impl Runtime {
     
     pub unsafe fn load_module(&self, bytes: &[u8]) -> Result<Component> {
         defmt::debug!("Loading precompiled module ({} bytes)", bytes.len());
+
+        match Engine::detect_precompiled(bytes) {
+            Some(Precompiled::Component) => {}
+            Some(Precompiled::Module) => {
+                defmt::error!("Precompiled blob is a core module, but runtime expects a component");
+                return Err(wasmtime::Error::msg("expected precompiled component"));
+            }
+            None => {
+                defmt::error!("Input bytes are not recognized as a Wasmtime precompiled artifact");
+                return Err(wasmtime::Error::msg("invalid precompiled artifact"));
+            }
+        }
         
         // consideret only safe if compiled on device
         let component = match unsafe { Component::deserialize(&self.engine, bytes) } {
@@ -109,7 +120,7 @@ impl Runtime {
         Ok(widget)
     }
 
-    pub async fn run(&mut self, widget: &Widget) -> Result<()> {
+    pub fn run(&mut self, widget: &Widget) -> Result<()> {
         defmt::debug!("Running widget");
 
         let context = WidgetContext {
@@ -148,12 +159,3 @@ impl Runtime {
         &self.engine
     }
 }
-
-// impl Default for Runtime {
-//     fn default() -> Self {
-//         // Provide default values for stack and tls_seed
-//         let stack = Stack::new();
-//         let tls_seed = 0;
-//         Self::new(stack, tls_seed)
-//     }
-// }

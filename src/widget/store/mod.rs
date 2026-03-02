@@ -32,6 +32,12 @@ impl From<serde_json::Error> for WidgetStoreError {
     }
 }
 
+impl From<reqwless::Error> for WidgetStoreError {
+    fn from(_: reqwless::Error) -> Self {
+        WidgetStoreError::Http("HTTP request failed")
+    }
+}
+
 pub struct WidgetStore {
     store_items: Vec<WidgetStoreItem>,
 }

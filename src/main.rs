@@ -67,8 +67,11 @@ async fn main(spawner: Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
-    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
+    // initalizeing PSRAM before heap fixes widget http host function access for some reason
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+    // esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
+     esp_alloc::heap_allocator!(size: 73 * 1024);
+    
 
     // Setup software interrupts for executors
     let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
@@ -112,7 +115,7 @@ async fn main(spawner: Spawner) -> ! {
     // let ssid = storage.config_get("ssid").unwrap();
     // let password = storage.config_get("pw").unwrap();
 
-    static APP_CORE_STACK: StaticCell<CoreStack<16384>> = StaticCell::new();
+    static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
     let app_core_stack = APP_CORE_STACK.init(CoreStack::new());
 
     let wifi_peripheral = peripherals.WIFI;
@@ -125,7 +128,7 @@ async fn main(spawner: Spawner) -> ! {
     info!("Testing direct HTTP request...");
     let http_client = globals::http_client();
     let response = http_client
-        .get("https://jsonplaceholder.typicode.com/posts/1")
+        .get("http://httpbin.org/get")
         .await
         .expect("Failed to make GET request");
     match core::str::from_utf8(&response) {
@@ -133,22 +136,11 @@ async fn main(spawner: Spawner) -> ! {
         Err(_) => info!("Direct HTTP Response: [binary data, {} bytes]", response.len()),
     }
 
-    info!("Waiting for network initialization from core1...");
-    while !globals::network_initialized() {
-        Timer::after(Duration::from_millis(200)).await;
-    }
-    info!("Network initialized by core1");
-
-    // -- Spawn HTTP handler task on core0 thread executor --
+    // -- Spawn HTTP handler task --
     spawner
         .spawn(http_handler_task())
         .expect("Failed to spawn HTTP handler task");
     info!("HTTP handler task spawned on core0 executor");
-
-    // spawner
-    //     .spawn(http_bridge_smoke_test())
-    //     .expect("Failed to spawn HTTP bridge smoke test");
-    // info!("HTTP bridge smoke test task spawned");
 
     esp_rtos::start_second_core(
         peripherals.CPU_CTRL,
@@ -159,17 +151,11 @@ async fn main(spawner: Spawner) -> ! {
             static CORE1_EXECUTOR: StaticCell<Executor> = StaticCell::new();
             let executor = CORE1_EXECUTOR.init(Executor::new());
 
-            // executor.run(|core1_spawner| {
-            //     core1_spawner
-            //         .spawn(widget_runner())
-            //         .expect("Failed to spawn widget runner on core1");
-            //     info!("Widget runner task spawned on core1");
-            // });
             executor.run(|core1_spawner| {
                 core1_spawner
-                    .spawn(http_bridge_smoke_test())
-                    .expect("Failed to spawn HTTP bridge smoke test");
-                info!("HTTP bridge smoke test task spawned");
+                    .spawn(widget_runner())
+                    .expect("Failed to spawn widget runner on core1");
+                info!("Widget runner task spawned on core1");
             });
         },
     );
@@ -188,40 +174,15 @@ async fn http_handler_task() {
 }
 
 #[embassy_executor::task]
-async fn http_bridge_smoke_test() {
-    info!("HTTP bridge smoke test started (core1)");
-
-    let response = globals::http_request_sync(
-        runtime::widget::widget::http::Method::Get,
-        alloc::string::String::from("https://jsonplaceholder.typicode.com/posts/1"),
-        None,
-    );
-
-    match response {
-        Ok(resp) => {
-            info!(
-                "HTTP bridge smoke test success: status={}, bytes={}",
-                resp.status,
-                resp.bytes.len()
-            );
-        }
-        Err(_) => {
-            info!("HTTP bridge smoke test failed");
-        }
-    }
-}
-
-#[embassy_executor::task]
 async fn widget_runner() {
     info!("Widget runner task started");
-    info!("Skipping direct HTTP on core1; network stack is owned by core0");
 
     // Initialize Wasmtime runtime
     info!("Initializing Wasmtime runtime");
     let mut runtime = runtime::Runtime::new();
     unsafe {
         let component = runtime
-            .load_module(include_bytes!("../../wasm-tools/widget_tests/test_widget.compiled"))
+            .load_module(include_bytes!("../../wasm-tools/widget_tests/test_widget_new.compiled"))
             .expect("Failed to load WASM module");
         let widget = runtime
             .instantiate(&component)
@@ -232,7 +193,7 @@ async fn widget_runner() {
         info!("Widget name: {}", name.as_str());
 
         info!("Starting widget execution...");
-        runtime.run(&widget).await.expect("Failed to run widget");
+        runtime.run(&widget).expect("Failed to run widget");
         info!("Widget execution completed");
     }
 }
