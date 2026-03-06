@@ -38,7 +38,7 @@ pub enum InstallAction {
 
 #[allow(dead_code)]
 /// Represents the information associated with a widget in the store.
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct WidgetStoreItem {
     pub name: String,
     pub description: String,
