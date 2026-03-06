@@ -1,7 +1,6 @@
 use embassy_net::Stack;
 use embassy_time::Duration;
 use esp_alloc as _;
-use esp_hal::ledc::channel::config;
 use picoserve::{
     AppBuilder, AppRouter, Router, 
     response::{File, IntoResponse, Json}, 
@@ -13,7 +12,6 @@ use defmt::{info, warn, error};
 use crate::{common::models::{InstallAction, SystemConfiguration}, util::globals, widget::store::WidgetStore};
 use crate::common::models::WidgetStoreItem;
 use crate::widget::manager::WidgetManager;
-use alloc::format;
 
 pub const WEB_TASK_POOL_SIZE: usize = 1;
 

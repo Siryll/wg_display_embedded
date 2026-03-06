@@ -32,7 +32,6 @@ use crate::storage::Storage;
 mod http_client;
 
 mod http_server;
-use crate::http_server::WebApp;
 
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
