@@ -1,17 +1,21 @@
+use defmt::{error, info, warn};
+use embassy_executor::Spawner;
 use embassy_net::Stack;
 use embassy_time::Duration;
 use esp_alloc as _;
 use picoserve::{
-    AppBuilder, AppRouter, Router, 
-    response::{File, IntoResponse, Json}, 
-    routing::{self, parse_path_segment}
+    AppBuilder, AppRouter, Router,
+    response::{File, IntoResponse, Json},
+    routing::{self, parse_path_segment},
 };
-use embassy_executor::Spawner;
-use defmt::{info, warn, error};
 
-use crate::{common::models::{InstallAction, SystemConfiguration}, util::globals, widget::store::WidgetStore};
 use crate::common::models::WidgetStoreItem;
 use crate::widget::manager::WidgetManager;
+use crate::{
+    common::models::{InstallAction, SystemConfiguration},
+    util::globals,
+    widget::store::WidgetStore,
+};
 
 pub const WEB_TASK_POOL_SIZE: usize = 1;
 
@@ -21,34 +25,47 @@ impl AppBuilder for Application {
     type PathRouter = impl routing::PathRouter;
 
     fn build_app(self) -> picoserve::Router<Self::PathRouter> {
-        picoserve::Router::new().route(
-            "/",
-            routing::get_service(File::html(include_str!("test.html"))),
-        )
-        .route("/get_store_items", routing::get(get_store_items))
-        .route("/install_widget", routing::post(post_install_widget))
-        .route("/system_config", routing::post(post_system_config))
-        .route("/system_config", routing::get(get_system_config))
-        // "/deinstall_widget/<widget_name>"
-        .route(
-            ("/deinstall_widget", parse_path_segment::<alloc::string::String>()),
-            routing::get(deinstall_widget)
-        )
-        // "/config_schema/<widget_name>"
-        .route(
-            ("/config_schema", parse_path_segment::<alloc::string::String>()), 
-            routing::get(get_config_schema)
-        )
-        // "/widget_configuration/<widget_name>"
-        .route(
-            ("/widget_config", parse_path_segment::<alloc::string::String>()), 
-            routing::post(post_widget_config)
-        )
-        // "/widget_configuration/<widget_name>"
-        .route(
-            ("/widget_configuration", parse_path_segment::<alloc::string::String>()), 
-            routing::get(get_widget_config)
-        )
+        picoserve::Router::new()
+            .route(
+                "/",
+                routing::get_service(File::html(include_str!("test.html"))),
+            )
+            .route("/get_store_items", routing::get(get_store_items))
+            .route("/install_widget", routing::post(post_install_widget))
+            .route("/system_config", routing::post(post_system_config))
+            .route("/system_config", routing::get(get_system_config))
+            // "/deinstall_widget/<widget_name>"
+            .route(
+                (
+                    "/deinstall_widget",
+                    parse_path_segment::<alloc::string::String>(),
+                ),
+                routing::get(deinstall_widget),
+            )
+            // "/config_schema/<widget_name>"
+            .route(
+                (
+                    "/config_schema",
+                    parse_path_segment::<alloc::string::String>(),
+                ),
+                routing::get(get_config_schema),
+            )
+            // "/widget_configuration/<widget_name>"
+            .route(
+                (
+                    "/widget_config",
+                    parse_path_segment::<alloc::string::String>(),
+                ),
+                routing::post(post_widget_config),
+            )
+            // "/widget_configuration/<widget_name>"
+            .route(
+                (
+                    "/widget_configuration",
+                    parse_path_segment::<alloc::string::String>(),
+                ),
+                routing::get(get_widget_config),
+            )
     }
 }
 
@@ -56,16 +73,18 @@ impl AppBuilder for Application {
 
 async fn get_store_items() -> impl IntoResponse {
     let mut store = WidgetStore::new();
-    store.fetch_from_store().await.map_err(|err| {
-        error!("Failed to fetch widget store: {:?}", err);
-    }).ok();
+    store
+        .fetch_from_store()
+        .await
+        .map_err(|err| {
+            error!("Failed to fetch widget store: {:?}", err);
+        })
+        .ok();
     Json(store.get_items().to_vec())
 }
 
 async fn get_system_config() -> impl IntoResponse {
-    let res = globals::with_storage(|storage| {
-        storage.get_widget_config()
-    }).await;
+    let res = globals::with_storage(|storage| storage.get_widget_config()).await;
     match res {
         Ok(config) => Json(config),
         Err(err) => {
@@ -75,9 +94,7 @@ async fn get_system_config() -> impl IntoResponse {
     }
 }
 
-async fn post_install_widget(
-    Json(action) : Json<InstallAction>
-) -> impl IntoResponse {
+async fn post_install_widget(Json(action): Json<InstallAction>) -> impl IntoResponse {
     let (download_url, description) = match action {
         InstallAction::FromUrl(url) => (url, alloc::string::String::from("No description")),
         InstallAction::FromStoreItemName(name) => {
@@ -106,12 +123,8 @@ async fn post_install_widget(
     }
 }
 
-async fn post_system_config(
-    Json(config): Json<SystemConfiguration>
-) -> impl IntoResponse {
-    let result =globals::with_storage(|storage| {
-        storage.save_widget_config(&config)
-    }).await;
+async fn post_system_config(Json(config): Json<SystemConfiguration>) -> impl IntoResponse {
+    let result = globals::with_storage(|storage| storage.save_widget_config(&config)).await;
     match result {
         Ok(_) => Ok(()),
         Err(err) => {
@@ -126,7 +139,11 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoRespon
     match result {
         Ok(_) => Ok(()),
         Err(err) => {
-            error!("Failed to deinstall widget {}: {:?}", widget_name.as_str(), err);
+            error!(
+                "Failed to deinstall widget {}: {:?}",
+                widget_name.as_str(),
+                err
+            );
             Err(())
         }
     }
@@ -134,15 +151,19 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoRespon
 
 async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoResponse {
     // TODO: requires runtime implementation
-    warn!("get_config_schema endpoint called for widget {}, not yet implemented", widget_name.as_str());
+    warn!(
+        "get_config_schema endpoint called for widget {}, not yet implemented",
+        widget_name.as_str()
+    );
     "Not implemented yet"
 }
 
 async fn post_widget_config(
     widget_name: alloc::string::String,
-    Json(config): Json<alloc::string::String>
+    Json(config): Json<alloc::string::String>,
 ) -> impl IntoResponse {
-    let mut system_config = match globals::with_storage(|storage| storage.get_widget_config()).await {
+    let mut system_config = match globals::with_storage(|storage| storage.get_widget_config()).await
+    {
         Ok(system_config) => system_config,
         Err(err) => {
             error!(
@@ -175,7 +196,10 @@ async fn post_widget_config(
 
 async fn get_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
     // TODO: requires frontend implementation
-    warn!("get_widget_config endpoint called for widget {}, not yet implemented", widget_name.as_str());
+    warn!(
+        "get_widget_config endpoint called for widget {}, not yet implemented",
+        widget_name.as_str()
+    );
     "Not implemented yet"
 }
 
@@ -204,23 +228,23 @@ impl Default for WebApp {
 }
 
 pub fn start(stack: Stack<'static>, _tls_seed: u64, spawner: &Spawner) {
-    info!("Starting web server with {} concurrent tasks...", WEB_TASK_POOL_SIZE);
-    
+    info!(
+        "Starting web server with {} concurrent tasks...",
+        WEB_TASK_POOL_SIZE
+    );
+
     let web_app = WebApp::default();
-    
+
     // Spawn multiple web tasks to handle concurrent connections
     for task_id in 0..WEB_TASK_POOL_SIZE {
-        spawner.must_spawn(web_task(
-            task_id,
-            stack,
-            web_app.router,
-            web_app.config,
-        ));
+        spawner.must_spawn(web_task(task_id, stack, web_app.router, web_app.config));
     }
-    
-    info!("Web server started on port 80 with {} tasks", WEB_TASK_POOL_SIZE);
-}
 
+    info!(
+        "Web server started on port 80 with {} tasks",
+        WEB_TASK_POOL_SIZE
+    );
+}
 
 #[embassy_executor::task(pool_size = WEB_TASK_POOL_SIZE)]
 pub async fn web_task(
@@ -235,8 +259,13 @@ pub async fn web_task(
     let mut http_buffer = alloc::boxed::Box::new([0u8; 2048]);
 
     picoserve::Server::new(router, config, &mut *http_buffer)
-        .listen_and_serve(task_id, stack, port, &mut *tcp_rx_buffer, &mut *tcp_tx_buffer)
+        .listen_and_serve(
+            task_id,
+            stack,
+            port,
+            &mut *tcp_rx_buffer,
+            &mut *tcp_tx_buffer,
+        )
         .await
         .into_never()
 }
-
