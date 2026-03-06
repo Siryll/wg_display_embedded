@@ -38,6 +38,7 @@ impl From<reqwless::Error> for WidgetStoreError {
     }
 }
 
+#[derive(Clone)]
 pub struct WidgetStore {
     store_items: Vec<WidgetStoreItem>,
 }

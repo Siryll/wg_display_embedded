@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(impl_trait_in_assoc_type)]
 #![deny(
     clippy::mem_forget,
     reason = "mem::forget is generally not safe to do with esp_hal types, especially those \
@@ -35,6 +36,8 @@ mod storage;
 use crate::storage::Storage;
 
 mod http_client;
+
+mod http_server;
 
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
@@ -162,6 +165,11 @@ async fn main(spawner: Spawner) -> ! {
             });
         },
     );
+    // -- Server setup --
+    http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+
+    // TODO: Spawn some tasks
+    let _ = spawner;
 
     loop {
         info!("Hello world!");

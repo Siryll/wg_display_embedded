@@ -10,6 +10,11 @@ Port of the [wg_display](https://github.com/eliabieri/wg_display) running on the
 With this current build there seems to be an issue when building under Windows, try to build in WSL by attaching the serial port connected to the ESP32-S3-Box-3 according to the [WSL instructions for ESP](https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/additionalfeatures/wsl.html#adding-the-required-linux-packages-in-wsl)
 
 ## Installation
+For `picoserve` the 1.93.0 pre-release version of the espup rust compiled is needed, install it with:
+```bash
+espup install --toolchain-version 1.93.0
+```
+
 Clone the repo:
 ```bash
 git clone https://github.com/Siryll/wg_display_embedded.git

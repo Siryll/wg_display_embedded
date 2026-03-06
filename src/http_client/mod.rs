@@ -55,8 +55,8 @@ impl EspHttpClient {
     ) -> Result<Vec<u8>, Error> {
         // create dns and tcp clients
         let dns = DnsSocket::new(self.stack);
-        let tcp_state = TcpClientState::<1, 4096, 4096>::new();
-        let tcp = TcpClient::new(self.stack, &tcp_state);
+        let tcp_state = alloc::boxed::Box::new(TcpClientState::<1, 4096, 4096>::new());
+        let tcp = TcpClient::new(self.stack, &*tcp_state);
 
         let mut rx_buffer = alloc::boxed::Box::new([0u8; 4096]);
         let mut tx_buffer = alloc::boxed::Box::new([0u8; 4096]);
