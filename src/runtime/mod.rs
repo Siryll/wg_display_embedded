@@ -7,6 +7,7 @@ mod host_api;
 pub mod http_sync;
 
 use alloc::vec::Vec;
+use hashbrown::HashMap;
 use wasmtime::{Config, Engine, Store, Result, Precompiled};
 use wasmtime::component::{Component, Linker, HasSelf};
 
@@ -35,7 +36,7 @@ pub struct Runtime {
     engine: Engine,
     linker: Linker<WidgetState>,
     store: Store<WidgetState>,
-    last_run: alloc::collections::BTreeMap<u32, u64>,
+    last_run: HashMap<String, Datetime>,
 }
 
 impl Runtime {
@@ -76,7 +77,7 @@ impl Runtime {
         
         defmt::info!("Wasmtime runtime initialized successfully");
         
-        Self { engine, linker, store, last_run: alloc::collections::BTreeMap::new()}
+        Self { engine, linker, store, last_run: HashMap::new()}
     }
     
     pub unsafe fn load_module(&self, bytes: &[u8]) -> Result<Component> {
@@ -122,15 +123,24 @@ impl Runtime {
         Ok(widget)
     }
 
-    pub fn run(&mut self, widget: &Widget) -> Result<()> {
+    pub fn run(
+        &mut self, 
+        widget: &Widget,
+        config: String
+    ) -> wasmtime::Result<Option<WidgetResult>> {
         defmt::debug!("Running widget");
-
-        let context = WidgetContext {
-            last_invocation: Datetime {
+        let name = self.get_widget_name(widget)?;
+        let last_invocation = *self
+            .last_run
+            .get(name.as_str())
+            .unwrap_or(&Datetime {
                     seconds: 0,
                     nanoseconds: 0,
-            },
-            config: "{}".into(),
+            });
+
+        let context = WidgetContext {
+            last_invocation,
+            config: config,
         };
         
         let result = match widget.call_run(&mut self.store, &context) {
@@ -141,8 +151,13 @@ impl Runtime {
             }
         };
         
+        self.last_run.insert(name, Datetime {
+                    seconds: 0,
+                    nanoseconds: 0,
+            });
+
         defmt::info!("Widget ran successfully result: {}", result.data.as_str());
-        Ok(())
+        Ok(Some(result))
     }
 
     pub fn get_widget_name(&mut self, widget: &Widget) -> wasmtime::Result<String> {

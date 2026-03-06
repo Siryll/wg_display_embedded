@@ -58,18 +58,14 @@ impl EspHttpClient {
         let tcp_state = TcpClientState::<1, 4096, 4096>::new();
         let tcp = TcpClient::new(self.stack, &tcp_state);
 
-        // let mut rx_buffer = alloc::boxed::Box::new([0u8; 2048]);
-        // let mut tx_buffer = alloc::boxed::Box::new([0u8; 2048]);
-        // let mut response_buffer = alloc::boxed::Box::new([0u8; 4096]);
-
-        let mut rx_buffer = [0u8; 4096];
-        let mut tx_buffer = [0u8; 4096];
-        let mut response_buffer = [0u8; 4096];
+        let mut rx_buffer = alloc::boxed::Box::new([0u8; 4096]);
+        let mut tx_buffer = alloc::boxed::Box::new([0u8; 4096]);
+        let mut response_buffer = alloc::boxed::Box::new([0u8; 4096]);
 
         let tls = TlsConfig::new(
             self.tls_seed,
-            &mut rx_buffer,
-            &mut tx_buffer,
+            &mut *rx_buffer,
+            &mut *tx_buffer,
             reqwless::client::TlsVerify::None,
         );
 
@@ -79,9 +75,7 @@ impl EspHttpClient {
             .await?
             .body(body);
 
-        let response = request
-            .send(&mut response_buffer)
-            .await?;
+        let response = request.send(&mut *response_buffer).await?;
 
         let status = response.status.0;
         info!("Response status: {}", status);

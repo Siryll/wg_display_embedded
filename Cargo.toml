@@ -79,6 +79,7 @@ reqwless = { version = "0.14.0", default-features = false, features = [
 # embedded-tls = { version = "0.18.0", default-features = false, features = ["defmt"] }
 # picoserve = { git="https://github.com/sammhicks/picoserve.git", branch="development", features = ["embassy","defmt","json"] }
 heapless = { version = "0.9.2", features = ["serde"] }
+hashbrown = { version = "0.16.1", default-features = false, features = ["default-hasher"] }
 # picoserve = { version = "0.17.1", features = ["embassy", "defmt", "json"] }
 
 # Fix for embedded-tls 0.18.0 compatibility issue with der crate
