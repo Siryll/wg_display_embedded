@@ -42,9 +42,11 @@ impl<'d> Storage<'d> {
         let mut flash_storage = FlashStorage::new(flash).multicore_auto_park();
 
         // read partition table using esp_bootloader_esp_idf
-        let mut partition_table_buffer = [0u8; partitions::PARTITION_TABLE_MAX_LEN];
+        // heap-allocated (→ PSRAM) to avoid large stack frame during init
+        let mut partition_table_buffer =
+            alloc::boxed::Box::new([0u8; partitions::PARTITION_TABLE_MAX_LEN]);
         let partition_table =
-            partitions::read_partition_table(&mut flash_storage, &mut partition_table_buffer)?;
+            partitions::read_partition_table(&mut flash_storage, &mut *partition_table_buffer)?;
 
         // list partitions
         defmt::info!("Partition table:");

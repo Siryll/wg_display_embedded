@@ -32,6 +32,7 @@ impl From<serde_json::Error> for WidgetStoreError {
     }
 }
 
+#[derive(Clone)]
 pub struct WidgetStore {
     store_items: Vec<WidgetStoreItem>,
 }
