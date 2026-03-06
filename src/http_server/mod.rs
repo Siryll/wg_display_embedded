@@ -254,9 +254,10 @@ pub async fn web_task(
     config: &'static picoserve::Config,
 ) -> ! {
     let port = 80;
-    let mut tcp_rx_buffer = alloc::boxed::Box::new([0u8; 1024]);
-    let mut tcp_tx_buffer = alloc::boxed::Box::new([0u8; 1024]);
-    let mut http_buffer = alloc::boxed::Box::new([0u8; 2048]);
+    // Use vec![] to allocate directly on heap (PSRAM), avoiding stack temporaries
+    let mut tcp_rx_buffer = alloc::vec![0u8; 1024].into_boxed_slice();
+    let mut tcp_tx_buffer = alloc::vec![0u8; 1024].into_boxed_slice();
+    let mut http_buffer = alloc::vec![0u8; 2048].into_boxed_slice();
 
     picoserve::Server::new(router, config, &mut *http_buffer)
         .listen_and_serve(

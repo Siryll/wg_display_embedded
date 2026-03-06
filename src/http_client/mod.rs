@@ -58,9 +58,9 @@ impl EspHttpClient {
         let tcp_state = alloc::boxed::Box::new(TcpClientState::<1, 4096, 4096>::new());
         let tcp = TcpClient::new(self.stack, &*tcp_state);
 
-        let mut rx_buffer = alloc::boxed::Box::new([0u8; 4096]);
-        let mut tx_buffer = alloc::boxed::Box::new([0u8; 4096]);
-        let mut response_buffer = alloc::boxed::Box::new([0u8; 4096]);
+        let mut rx_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
+        let mut tx_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
+        let mut response_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
 
         let tls = TlsConfig::new(
             self.tls_seed,

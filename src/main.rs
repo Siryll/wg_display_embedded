@@ -72,8 +72,8 @@ async fn main(spawner: Spawner) -> ! {
 
     // initalizeing PSRAM before heap fixes widget http host function access for some reason
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
-    // esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
-     esp_alloc::heap_allocator!(size: 73 * 1024);
+    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
+    //  esp_alloc::heap_allocator!(size: 73 * 1024);
     
 
     // Setup software interrupts for executors
