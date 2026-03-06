@@ -19,12 +19,10 @@ use core::ptr;
 //     }
 // }
 
-
 // #[unsafe(no_mangle)]
 // pub extern "C" fn wasmtime_tls_get() -> *mut u8 {
 //     WASMTIME_TLS[current_core_index()].load(Ordering::SeqCst)
 // }
-
 
 // #[unsafe(no_mangle)]
 // pub extern "C" fn wasmtime_tls_set(ptr: *mut u8) {
@@ -33,14 +31,14 @@ use core::ptr;
 
 static mut WASMTIME_TLS: *mut u8 = ptr::null_mut();
 
-
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmtime_tls_get() -> *mut u8 {
     unsafe { WASMTIME_TLS }
 }
 
-
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmtime_tls_set(ptr: *mut u8) {
-    unsafe { WASMTIME_TLS = ptr; }
+    unsafe {
+        WASMTIME_TLS = ptr;
+    }
 }

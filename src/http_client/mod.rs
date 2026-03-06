@@ -6,9 +6,9 @@ use embassy_net::{
     tcp::client::{TcpClient, TcpClientState},
 };
 use reqwless::{
+    Error,
     client::{HttpClient, TlsConfig},
     request::RequestBuilder,
-    Error,
 };
 
 pub struct EspHttpClient {
@@ -64,18 +64,15 @@ impl EspHttpClient {
 
         let tls = TlsConfig::new(
             self.tls_seed,
-            &mut *rx_buffer,
-            &mut *tx_buffer,
+            &mut rx_buffer,
+            &mut tx_buffer,
             reqwless::client::TlsVerify::None,
         );
 
         let mut client = HttpClient::new_with_tls(&tcp, &dns, tls);
-        let mut request = client
-            .request(method, url)
-            .await?
-            .body(body);
+        let mut request = client.request(method, url).await?.body(body);
 
-        let response = request.send(&mut *response_buffer).await?;
+        let response = request.send(&mut response_buffer).await?;
 
         let status = response.status.0;
         info!("Response status: {}", status);
@@ -84,10 +81,7 @@ impl EspHttpClient {
             warn!("HTTP request failed with status {}", status);
         }
 
-        let body_bytes = response
-            .body()
-            .read_to_end()
-            .await?;
+        let body_bytes = response.body().read_to_end().await?;
 
         info!("HTTP body read succeeded: {} bytes", body_bytes.len());
         Ok(body_bytes.to_vec())

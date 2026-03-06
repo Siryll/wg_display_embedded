@@ -74,11 +74,10 @@ async fn main(spawner: Spawner) -> ! {
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
     //  esp_alloc::heap_allocator!(size: 73 * 1024);
-    
 
     // Setup software interrupts for executors
     let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
-    
+
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     // Note: On Xtensa, esp_rtos::start doesn't take a software interrupt parameter
     esp_rtos::start(timg0.timer0);
@@ -135,7 +134,10 @@ async fn main(spawner: Spawner) -> ! {
         .expect("Failed to make GET request");
     match core::str::from_utf8(&response) {
         Ok(s) => info!("Direct HTTPS Response: {}", s),
-        Err(_) => info!("Direct HTTPS Response: [binary data, {} bytes]", response.len()),
+        Err(_) => info!(
+            "Direct HTTPS Response: [binary data, {} bytes]",
+            response.len()
+        ),
     }
 
     // -- Spawn HTTP handler task for widget runtime --
@@ -189,7 +191,9 @@ async fn widget_runner() {
     let mut runtime = runtime::Runtime::new();
     unsafe {
         let component = runtime
-            .load_module(include_bytes!("../../wasm-tools/widget_tests/test_widget_new.compiled"))
+            .load_module(include_bytes!(
+                "../../wasm-tools/widget_tests/test_widget_new.compiled"
+            ))
             .expect("Failed to load WASM module");
         let widget = runtime
             .instantiate(&component)
@@ -198,12 +202,12 @@ async fn widget_runner() {
             .get_widget_name(&widget)
             .expect("Failed to get widget name");
         info!("Widget name: {}", name.as_str());
-        let config = runtime.get_config_schema(&widget).expect("Failed to get config schema");
+        let config = runtime
+            .get_config_schema(&widget)
+            .expect("Failed to get config schema");
 
         info!("Starting widget execution...");
-        runtime
-            .run(&widget, config)
-            .expect("Failed to run widget");
+        runtime.run(&widget, config).expect("Failed to run widget");
         info!("Widget execution completed");
     }
 }

@@ -1,6 +1,6 @@
+use crate::runtime::WidgetState;
 use crate::runtime::http_sync::http_request_sync;
 use crate::runtime::widget::widget::http;
-use crate::runtime::WidgetState;
 use alloc::string::String;
 use alloc::vec::Vec;
 use defmt::info;

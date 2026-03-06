@@ -1,12 +1,12 @@
+use crate::globals;
 use crate::runtime::widget::widget::http;
 use alloc::string::String;
 use alloc::vec::Vec;
+use defmt::{error, info};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use esp_hal::time::Duration as HalDuration;
-use defmt::{info, error};
 use esp_rtos::CurrentThreadHandle;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use crate::globals;
 
 // HTTP request/response bridge for sync-to-async communication
 #[derive(Clone)]
@@ -24,7 +24,7 @@ static HTTP_REQUEST_CHANNEL: Channel<CriticalSectionRawMutex, HttpRequest, 1> = 
 static HTTP_RESPONSE_CHANNEL: Channel<CriticalSectionRawMutex, HttpResponse, 1> = Channel::new();
 
 /// Synchronous HTTP request function called from WIT host functions
-/// 
+///
 /// This sends a request to the HTTP handler task and waits for the response.
 /// While waiting, it yields the current RTOS thread so Embassy tasks (including
 /// `embassy_net::Runner`) can keep running.
@@ -33,7 +33,8 @@ pub fn http_request_sync(
     url: String,
     body: Option<Vec<u8>>,
 ) -> Result<http::Response, ()> {
-    info!("http_request_sync: sending {} request to {}",
+    info!(
+        "http_request_sync: sending {} request to {}",
         match method {
             http::Method::Get => "GET",
             http::Method::Post => "POST",
@@ -67,7 +68,7 @@ pub fn http_request_sync(
                             error!("HTTP request timed out while waiting for handler response");
                             return Err(());
                         }
-                        if iterations % 20 == 0 {
+                        if iterations.is_multiple_of(20) {
                             info!("Still waiting... iteration {}", iterations);
                         }
 
@@ -86,7 +87,7 @@ pub fn http_request_sync(
 }
 
 /// Async task that handles HTTP requests from the channel
-/// 
+///
 /// This should be spawned as a background task on startup
 #[embassy_executor::task]
 pub async fn http_handler_task() {
@@ -94,11 +95,12 @@ pub async fn http_handler_task() {
 
     loop {
         defmt::debug!("HTTP handler: waiting for request...");
-        
+
         // Wait for incoming request
         let request = HTTP_REQUEST_CHANNEL.receive().await;
-        
-        defmt::info!("Processing HTTP {} request to: {=str}", 
+
+        defmt::info!(
+            "Processing HTTP {} request to: {=str}",
             match request.method {
                 http::Method::Get => "GET",
                 http::Method::Post => "POST",
@@ -108,11 +110,11 @@ pub async fn http_handler_task() {
             },
             request.url.as_str()
         );
-        
+
         // Get HTTP client and execute request
         defmt::info!("Created HTTP request object, executing...");
         let http_client = globals::http_client();
-        
+
         defmt::info!("HTTP handler: executing request");
         let response_result = async {
             let method = match request.method {
@@ -127,24 +129,24 @@ pub async fn http_handler_task() {
                 .request(method, &request.url, request.body.as_deref())
                 .await
                 .map_err(|e| {
-                    defmt::error!(
-                        "HTTP handler request failed: {:?}",
-                        defmt::Debug2Format(&e)
-                    );
-                    ()
+                    defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));
                 })
-        }.await;
-        
+        }
+        .await;
+
         // Convert to WIT response type
         let response = response_result.map(|response_bytes| {
-            defmt::info!("HTTP request succeeded, {} bytes received", response_bytes.len());
+            defmt::info!(
+                "HTTP request succeeded, {} bytes received",
+                response_bytes.len()
+            );
             http::Response {
-                status: 200,  // TODO: get actual status from reqwless
+                status: 200, // TODO: get actual status from reqwless
                 content_length: Some(u64::try_from(response_bytes.len()).unwrap_or(0)),
                 bytes: response_bytes,
             }
         });
-        
+
         // Send response back
         HTTP_RESPONSE_CHANNEL.send(response).await;
         defmt::info!("HTTP response sent back to caller");

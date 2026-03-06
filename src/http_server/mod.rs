@@ -259,13 +259,13 @@ pub async fn web_task(
     let mut tcp_tx_buffer = alloc::vec![0u8; 1024].into_boxed_slice();
     let mut http_buffer = alloc::vec![0u8; 2048].into_boxed_slice();
 
-    picoserve::Server::new(router, config, &mut *http_buffer)
+    picoserve::Server::new(router, config, &mut http_buffer)
         .listen_and_serve(
             task_id,
             stack,
             port,
-            &mut *tcp_rx_buffer,
-            &mut *tcp_tx_buffer,
+            &mut tcp_rx_buffer,
+            &mut tcp_tx_buffer,
         )
         .await
         .into_never()

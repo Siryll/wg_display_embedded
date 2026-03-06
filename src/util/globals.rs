@@ -1,10 +1,10 @@
 use crate::http_client::EspHttpClient;
 use crate::storage::Storage;
 use core::sync::atomic::{AtomicBool, Ordering};
+use defmt::info;
 use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
-use defmt::info;
 
 type GlobalMutex<T> = Mutex<CriticalSectionRawMutex, Option<T>>;
 

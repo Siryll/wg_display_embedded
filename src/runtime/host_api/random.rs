@@ -1,5 +1,5 @@
-use crate::runtime::widget::widget::random;
 use crate::runtime::WidgetState;
+use crate::runtime::widget::widget::random;
 use esp_hal::rng::Rng;
 
 fn get_random() -> u64 {
