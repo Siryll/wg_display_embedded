@@ -4,6 +4,8 @@ mod platform;
 
 mod host_api;
 
+pub mod http_sync;
+
 use alloc::vec::Vec;
 use wasmtime::{Config, Engine, Store, Result, Precompiled};
 use wasmtime::component::{Component, Linker, HasSelf};

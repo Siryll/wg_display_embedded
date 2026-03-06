@@ -138,7 +138,7 @@ async fn main(spawner: Spawner) -> ! {
 
     // -- Spawn HTTP handler task --
     spawner
-        .spawn(http_handler_task())
+        .spawn(runtime::http_sync::http_handler_task())
         .expect("Failed to spawn HTTP handler task");
     info!("HTTP handler task spawned on core0 executor");
 
@@ -166,11 +166,6 @@ async fn main(spawner: Spawner) -> ! {
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples
-}
-
-#[embassy_executor::task]
-async fn http_handler_task() {
-    globals::http_handler_task().await;
 }
 
 #[embassy_executor::task]

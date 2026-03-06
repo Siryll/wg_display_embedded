@@ -1,8 +1,8 @@
+use crate::runtime::http_sync::http_request_sync;
 use crate::runtime::widget::widget::http;
 use crate::runtime::WidgetState;
 use alloc::string::String;
 use alloc::vec::Vec;
-use crate::globals;
 use defmt::info;
 
 impl http::Host for WidgetState {
@@ -13,7 +13,7 @@ impl http::Host for WidgetState {
         body: Option<Vec<u8>>,
     ) -> Result<http::Response, ()> {
         info!("HTTP host function called");
-        let response = globals::http_request_sync(method, url, body);
+        let response = http_request_sync(method, url, body);
 
         match response {
             Ok(resp) => {
