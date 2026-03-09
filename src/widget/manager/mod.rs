@@ -23,6 +23,12 @@ impl From<&'static str> for WidgetManagerError {
     }
 }
 
+impl From<reqwless::Error> for WidgetManagerError {
+    fn from(_: reqwless::Error) -> Self {
+        WidgetManagerError::HttpError("HTTP request failed")
+    }
+}
+
 pub struct WidgetManager;
 
 impl WidgetManager {

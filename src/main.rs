@@ -12,8 +12,12 @@ use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
+use esp_hal::interrupt::software::SoftwareInterruptControl;
+use esp_hal::system::Stack as CoreStack;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println as _;
+use esp_rtos::embassy::Executor;
+use static_cell::StaticCell;
 
 mod wifi;
 use crate::wifi::Wifi;
@@ -25,6 +29,8 @@ use crate::util::globals;
 
 mod display;
 use crate::display::Display;
+
+mod runtime;
 
 mod storage;
 use crate::storage::Storage;
@@ -64,10 +70,16 @@ async fn main(spawner: Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
+    // initalizeing PSRAM before heap fixes widget http host function access for some reason
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
+    //  esp_alloc::heap_allocator!(size: 73 * 1024);
+
+    // Setup software interrupts for executors
+    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
+    // Note: On Xtensa, esp_rtos::start doesn't take a software interrupt parameter
     esp_rtos::start(timg0.timer0);
 
     info!("Embassy initialized!");
@@ -77,8 +89,10 @@ async fn main(spawner: Spawner) -> ! {
     globals::init_storage(storage).await;
 
     // Set ssid and pw on first compile, until configuration via UI is possible
-    // storage.config_set("ssid", "").expect("Failed to write config");
-    // storage.config_set("pw", "").expect("Failed to write config");
+    // globals::with_storage(|storage| {
+    //     storage.config_set("ssid", "").expect("Failed to write config");
+    //     storage.config_set("pw", "").expect("Failed to write config");
+    // }).await;
 
     // -- Display setup --
     let mut display = Display::new(
@@ -105,21 +119,54 @@ async fn main(spawner: Spawner) -> ! {
     // let ssid = storage.config_get("ssid").unwrap();
     // let password = storage.config_get("pw").unwrap();
 
-    let wifi = Wifi::start_station(peripherals.WIFI, &spawner, ssid, password);
+    let wifi_peripheral = peripherals.WIFI;
+
+    let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password);
     wifi.wait_for_connection().await;
     globals::init_network(wifi.stack(), wifi.tls_seed());
 
-    // -- HTTP client setup --
+    // Test HTTPS client first
+    info!("Testing direct HTTPS request...");
     let http_client = globals::http_client();
     let response = http_client
-        .get("https://jsonplaceholder.typicode.com/posts/1")
+        .get("https://jsonplaceholder.typicode.com/todos/1")
         .await
         .expect("Failed to make GET request");
     match core::str::from_utf8(&response) {
-        Ok(s) => info!("Response: {}", s),
-        Err(_) => info!("Response: [binary data, {} bytes]", response.len()),
+        Ok(s) => info!("Direct HTTPS Response: {}", s),
+        Err(_) => info!(
+            "Direct HTTPS Response: [binary data, {} bytes]",
+            response.len()
+        ),
     }
 
+    // -- Spawn HTTP handler task for widget runtime --
+    spawner
+        .spawn(runtime::http_sync::http_handler_task())
+        .expect("Failed to spawn HTTP handler task");
+    info!("HTTP handler task spawned on core0 executor");
+
+    // -- Init and start widget runner on second core --
+    static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
+    let app_core_stack = APP_CORE_STACK.init(CoreStack::new());
+
+    esp_rtos::start_second_core(
+        peripherals.CPU_CTRL,
+        sw_int.software_interrupt0,
+        sw_int.software_interrupt1,
+        app_core_stack,
+        || {
+            static CORE1_EXECUTOR: StaticCell<Executor> = StaticCell::new();
+            let executor = CORE1_EXECUTOR.init(Executor::new());
+
+            executor.run(|core1_spawner| {
+                core1_spawner
+                    .spawn(widget_runner())
+                    .expect("Failed to spawn widget runner on core1");
+                info!("Widget runner task spawned on core1");
+            });
+        },
+    );
     // -- Server setup --
     http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
 
@@ -132,4 +179,33 @@ async fn main(spawner: Spawner) -> ! {
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples
+}
+
+// This is a sample function that will be remove in the final version and replaced by the renderer
+#[embassy_executor::task]
+async fn widget_runner() {
+    info!("Widget runner task started");
+
+    // Initialize Wasmtime runtime
+    info!("Initializing Wasmtime runtime");
+    let mut runtime = runtime::Runtime::new();
+    unsafe {
+        let component = runtime
+            .load_module(include_bytes!("runtime/test_widget_new.compiled"))
+            .expect("Failed to load WASM module");
+        let widget = runtime
+            .instantiate(&component)
+            .expect("Failed to instantiate component");
+        let name = runtime
+            .get_widget_name(&widget)
+            .expect("Failed to get widget name");
+        info!("Widget name: {}", name.as_str());
+        let config = runtime
+            .get_config_schema(&widget)
+            .expect("Failed to get config schema");
+
+        info!("Starting widget execution...");
+        runtime.run(&widget, config).expect("Failed to run widget");
+        info!("Widget execution completed");
+    }
 }

@@ -1,0 +1,25 @@
+package widget:widget;
+
+// WIT interface for the interaction between the host application and widgets
+// Inspired by work-in-progress WASI Preview 2 WIT definitions
+// (https://github.com/bytecodealliance/preview2-prototyping/tree/main/wit)
+world widget {
+    use types.{widget-context, widget-result};
+
+    import http;
+    import random;
+    import clocks;
+    import logging;
+
+    // Return the name of the widget
+    export get-name: func() -> string;
+    // Return the semantic version of the widget
+    export get-version: func() -> string;
+    // Return the config JSON schema string
+    export get-config-schema: func() -> string;
+    // Returns the run update cycle in seconds.
+    // With this, widgets can control how frequently they shall be updated.
+    export get-run-update-cycle-seconds: func() -> u32;
+    // Invoke the widget with the given context
+    export run: func(context: widget-context) -> widget-result;
+}

@@ -1,5 +1,7 @@
 use crate::http_client::EspHttpClient;
 use crate::storage::Storage;
+use core::sync::atomic::{AtomicBool, Ordering};
+use defmt::info;
 use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
@@ -12,13 +14,15 @@ static mut NETWORK_STACK: Option<Stack<'static>> = None;
 
 static mut TLS_SEED: Option<u64> = None;
 
+static NETWORK_READY: AtomicBool = AtomicBool::new(false);
+
 pub async fn init_storage(storage: Storage<'static>) {
     let mut guard = STORAGE.lock().await;
     if guard.is_some() {
         panic!("Storage already initialized!");
     }
     *guard = Some(storage);
-    defmt::info!("Global storage initialized");
+    info!("Global storage initialized");
 }
 
 pub async fn with_storage<F, R>(f: F) -> R
@@ -37,7 +41,8 @@ pub fn init_network(stack: Stack<'static>, tls_seed: u64) {
         NETWORK_STACK = Some(stack);
         TLS_SEED = Some(tls_seed);
     }
-    defmt::info!("Global network stack initialized");
+    NETWORK_READY.store(true, Ordering::Release);
+    info!("Global network stack initialized");
 }
 
 pub fn network_stack() -> Stack<'static> {

@@ -56,7 +56,7 @@ impl Wifi {
         let (stack, runner) = embassy_net::new(
             wifi_interface,
             config,
-            mk_static!(StackResources<4>, StackResources::<4>::new()),
+            mk_static!(StackResources<8>, StackResources::<8>::new()),
             net_seed,
         );
 
