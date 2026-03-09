@@ -7,6 +7,8 @@ Port of the [wg_display](https://github.com/eliabieri/wg_display) running on the
 - [espup](https://docs.espressif.com/projects/rust/book/getting-started/toolchain.html#xtensa-devices) installed
 - The [ESP32-S3-Box-3](https://github.com/espressif/esp-box/blob/master/docs/hardware_overview/esp32_s3_box_3/hardware_overview_for_box_3.md)
 
+With this current build there seems to be an issue when building under Windows, try to build in WSL by attaching the serial port connected to the ESP32-S3-Box-3 according to the [WSL instructions for ESP](https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/additionalfeatures/wsl.html#adding-the-required-linux-packages-in-wsl)
+
 ## Installation
 For `picoserve` the 1.93.0 pre-release version of the espup rust compiled is needed, install it with:
 ```bash
