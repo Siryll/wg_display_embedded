@@ -191,9 +191,7 @@ async fn widget_runner() {
     let mut runtime = runtime::Runtime::new();
     unsafe {
         let component = runtime
-            .load_module(include_bytes!(
-                "runtime/test_widget_new.compiled"
-            ))
+            .load_module(include_bytes!("runtime/test_widget_new.compiled"))
             .expect("Failed to load WASM module");
         let widget = runtime
             .instantiate(&component)
