@@ -192,7 +192,7 @@ async fn widget_runner() {
     unsafe {
         let component = runtime
             .load_module(include_bytes!(
-                "../../wasm-tools/widget_tests/test_widget_new.compiled"
+                "runtime/test_widget_new.compiled"
             ))
             .expect("Failed to load WASM module");
         let widget = runtime
