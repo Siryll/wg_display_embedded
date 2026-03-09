@@ -16,7 +16,7 @@ use alloc::string::String;
 use crate::runtime::widget::widget::types::Datetime;
 
 // links wit finctions, implementations in host_api
-wasmtime::component::bindgen!({ path: "../wg_display/wg_display_widget_wit/wit" });
+wasmtime::component::bindgen!({ path: "src/runtime/host_api/wit" });
 
 pub struct WidgetState {}
 

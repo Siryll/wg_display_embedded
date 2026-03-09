@@ -1,0 +1,5 @@
+interface clocks {
+    use types.{datetime};
+
+    now: func() -> datetime;
+}

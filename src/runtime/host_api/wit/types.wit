@@ -1,0 +1,23 @@
+interface types {
+    record datetime {
+        // Seconds since epoch
+        seconds: u64,
+        nanoseconds: u32,
+    }
+
+    // Configuration that the widget receives from the host.
+    record widget-context {
+        // Timestamp of the last widget invocation.
+        last-invocation: datetime,
+        // Widget specific configuration serialized as JSON
+        // Must comply with the widget's config schema obtained by get-config-schema
+        config: string
+    }
+
+    // The result of a widget invocation.
+    record widget-result {
+        // Formatted string
+        // Can also be an error explaining what went wrong for the user
+        data: string
+    }
+}
