@@ -9,6 +9,7 @@ name = "embedded_wg_display"
 # path = "./src/bin/main.rs"
 
 [dependencies]
+common = { path = "../common" }
 esp-hal = { version = "~1.0.0", features = ["defmt", "esp32s3", "unstable", "psram"] }
 
 esp-rtos = { version = "0.2.0", features = [

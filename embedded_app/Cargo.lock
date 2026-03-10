@@ -246,6 +246,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "const-default"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1142,6 +1149,7 @@ dependencies = [
 name = "embedded_wg_display"
 version = "0.1.0"
 dependencies = [
+ "common",
  "critical-section",
  "defmt 1.0.1",
  "der 0.8.0",

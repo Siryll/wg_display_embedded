@@ -22,7 +22,6 @@ use static_cell::StaticCell;
 mod wifi;
 use crate::wifi::Wifi;
 
-mod common;
 mod util;
 mod widget;
 use crate::util::globals;

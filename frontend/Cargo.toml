@@ -1,0 +1,21 @@
+[package]
+name = "frontend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { path = "../common", features = ["yew"]  }
+
+yew = { version = "0.20.0", features = ["csr"] }
+yew-router = "0.17.0"
+yew-hooks = "0.2.0"
+yew-feather = "1.0.0"
+web-sys = { version = "0.3.60", features = [
+    "HtmlSelectElement",
+    "HtmlInputElement",
+    "HtmlButtonElement",
+] }
+wasm-bindgen = "0.2.83"
+gloo-net = "0.4.0"
+gloo-console = "0.3.0"
+wasm-bindgen-futures = "0.4.33"

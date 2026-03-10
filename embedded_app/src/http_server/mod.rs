@@ -9,10 +9,10 @@ use picoserve::{
     routing::{self, parse_path_segment},
 };
 
-use crate::common::models::WidgetStoreItem;
+use common::models::WidgetStoreItem;
 use crate::widget::manager::WidgetManager;
+use common::models::{InstallAction, SystemConfiguration};
 use crate::{
-    common::models::{InstallAction, SystemConfiguration},
     util::globals,
     widget::store::WidgetStore,
 };

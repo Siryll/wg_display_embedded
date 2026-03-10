@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::common::models::{SystemConfiguration, WidgetInstallationData};
+use common::models::{SystemConfiguration, WidgetInstallationData};
 use alloc::string::ToString;
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;

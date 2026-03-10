@@ -22,5 +22,6 @@ git clone https://github.com/Siryll/wg_display_embedded.git
 
 Build the project:
 ```bash
+cd embedded_app
 cargo build --release
 ```

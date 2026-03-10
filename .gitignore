@@ -5,6 +5,9 @@ target/
 # Env file for wifi credentials (before config is implemented)
 .env
 
+node_modules/
+dist/
+
 # Editor configuration
 .vscode/
 .zed/

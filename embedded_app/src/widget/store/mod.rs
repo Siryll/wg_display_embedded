@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::common::models::WidgetStoreItem;
+use common::models::WidgetStoreItem;
 use crate::util::globals;
 use alloc::string::FromUtf8Error;
 use alloc::vec::Vec;
