@@ -16,8 +16,26 @@ use crate::{
     util::globals,
     widget::store::WidgetStore,
 };
+use crate::runtime::Runtime;
+use alloc::string::{String, ToString};
+
+mod frontend;
 
 pub const WEB_TASK_POOL_SIZE: usize = 1;
+struct HtmlResponse(String);
+
+// implementation for the get_widget_config to avoid memory leak
+impl IntoResponse for HtmlResponse {
+    async fn write_to<R: picoserve::io::Read, W: picoserve::response::ResponseWriter<Error = R::Error>>(
+        self,
+        connection: picoserve::response::Connection<'_, R>,
+        response_writer: W,
+    ) -> Result<picoserve::ResponseSent, W::Error> {
+        (("Content-Type", "text/html; charset=utf-8"), self.0.as_str())
+            .write_to(connection, response_writer)
+            .await
+    }
+}
 
 pub struct Application;
 
@@ -66,6 +84,7 @@ impl AppBuilder for Application {
                 ),
                 routing::get(get_widget_config),
             )
+            // routes to serve frontend files
     }
 }
 
@@ -150,12 +169,25 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoRespon
 }
 
 async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoResponse {
-    // TODO: requires runtime implementation
-    warn!(
-        "get_config_schema endpoint called for widget {}, not yet implemented",
-        widget_name.as_str()
-    );
-    "Not implemented yet"
+    // Return config from test widget for now
+    let mut runtime = Runtime::new();
+    let mut config: String;
+    unsafe {
+        // let widget_binary = globals::with_storage(|storage| storage.wasm_read(&widget_name)).await;
+        // let component = runtime
+        //     .load_module(widget_binary)
+        //     .expect("Failed to load WASM module");
+        let component = runtime
+            .load_module(include_bytes!("../runtime/test_widget_new.compiled"))
+            .expect("Failed to load WASM module");
+        let widget = runtime
+            .instantiate(&component)
+            .expect("Failed to instantiate component");
+        config = runtime
+            .get_config_schema(&widget)
+            .expect("Failed to get config schema");
+    }
+    Json(config)
 }
 
 async fn post_widget_config(
@@ -195,12 +227,13 @@ async fn post_widget_config(
 }
 
 async fn get_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
-    // TODO: requires frontend implementation
-    warn!(
-        "get_widget_config endpoint called for widget {}, not yet implemented",
-        widget_name.as_str()
-    );
-    "Not implemented yet"
+    info!("Serving widget configuration page for: {}", widget_name.as_str());
+    
+    // Replace {{WIDGET_NAME}} placeholder with actual widget name
+    let html = frontend::WIDGET_CONFIG_HTML.replace("{{WIDGET_NAME}}", widget_name.as_str());
+    
+    // Return custom HTML response that owns the string (no leak needed)
+    HtmlResponse(html)
 }
 
 pub struct WebApp {
