@@ -7,6 +7,7 @@
     holding buffers for the duration of a data transfer."
 )]
 #![deny(clippy::large_stack_frames)]
+#![recursion_limit = "256"]
 
 use defmt::info;
 use embassy_executor::Spawner;

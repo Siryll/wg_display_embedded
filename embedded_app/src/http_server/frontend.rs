@@ -9,4 +9,5 @@ pub const JSONFORM_DEFAULTS_JS: &[u8] = include_bytes!("../../../frontend/dist/a
 pub const JSONFORM_SPLIT_JS: &[u8] = include_bytes!("../../../frontend/dist/assets/js/jsonform-split.js");
 pub const WIDGET_CONFIG_HTML: &str = include_str!("../../../frontend/dist/assets/html/widget_config.html");
 pub const LOGO_PNG: &[u8] = include_bytes!("../../../frontend/dist/assets/logo.png");
+pub const FRONTEND_WASM_GZ: &[u8] = include_bytes!("../../../frontend/dist/frontend_bg.wasm.gz");
 

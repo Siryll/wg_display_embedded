@@ -22,6 +22,7 @@ use alloc::string::{String, ToString};
 mod frontend;
 
 pub const WEB_TASK_POOL_SIZE: usize = 1;
+
 struct HtmlResponse(String);
 
 // implementation for the get_widget_config to avoid memory leak
@@ -37,6 +38,23 @@ impl IntoResponse for HtmlResponse {
     }
 }
 
+// Pre-serialize to a heap String to avoid picoserve's incremental streaming
+// serializer, which re-serializes the value multiple times synchronously
+// (blocking the embassy executor) before writing a single byte.
+struct JsonStringResponse(String);
+
+impl IntoResponse for JsonStringResponse {
+    async fn write_to<R: picoserve::io::Read, W: picoserve::response::ResponseWriter<Error = R::Error>>(
+        self,
+        connection: picoserve::response::Connection<'_, R>,
+        response_writer: W,
+    ) -> Result<picoserve::ResponseSent, W::Error> {
+        (("Content-Type", "application/json"), self.0.as_str())
+            .write_to(connection, response_writer)
+            .await
+    }
+}
+
 pub struct Application;
 
 impl AppBuilder for Application {
@@ -44,14 +62,9 @@ impl AppBuilder for Application {
 
     fn build_app(self) -> picoserve::Router<Self::PathRouter> {
         picoserve::Router::new()
-            .route(
-                "/",
-                routing::get_service(File::html(include_str!("test.html"))),
-            )
             .route("/get_store_items", routing::get(get_store_items))
             .route("/install_widget", routing::post(post_install_widget))
-            .route("/system_config", routing::post(post_system_config))
-            .route("/system_config", routing::get(get_system_config))
+            .route("/system_config", routing::get(get_system_config).post(post_system_config))
             // "/deinstall_widget/<widget_name>"
             .route(
                 (
@@ -85,6 +98,58 @@ impl AppBuilder for Application {
                 routing::get(get_widget_config),
             )
             // routes to serve frontend files
+            .route(
+                "/",
+                routing::get_service(File::html(frontend::INDEX_HTML)),
+            )
+            .route(
+                "/frontend.js",
+                routing::get_service(File::with_content_type("application/javascript", frontend::FRONTEND_JS)),
+            )
+            .route(
+                "/frontend_bg.wasm",
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/wasm",
+                    frontend::FRONTEND_WASM_GZ,
+                    &[("Content-Encoding", "gzip")],
+                )),
+            )
+            .route(
+                "/output.css",
+                routing::get_service(File::with_content_type("text/css", frontend::OUTPUT_CSS)),
+            )
+            .route(
+                "/assets/logo.png",
+                routing::get_service(File::with_content_type("image/png", frontend::LOGO_PNG)),
+            )
+            .route(
+                "/assets/css/bootstrap.css",
+                routing::get_service(File::with_content_type("text/css", frontend::BOOTSTRAP_CSS)),
+            )
+            .route(
+                "/assets/js/jquery.min.js",
+                routing::get_service(File::with_content_type("application/javascript", frontend::JQUERY_JS)),
+            )
+            .route(
+                "/assets/js/underscore.js",
+                routing::get_service(File::with_content_type("application/javascript", frontend::UNDERSCORE_JS)),
+            )
+            .route(
+                "/assets/js/jsonform.js",
+                routing::get_service(File::with_content_type("application/javascript", frontend::JSONFORM_JS)),
+            )
+            .route(
+                "/assets/js/jsonform-defaults.js",
+                routing::get_service(File::with_content_type("application/javascript", frontend::JSONFORM_DEFAULTS_JS)),
+            )
+            .route(
+                "/assets/js/jsonform-split.js",
+                routing::get_service(File::with_content_type("application/javascript", frontend::JSONFORM_SPLIT_JS)),
+            )
+            .route(
+                "/assets/html/widget_config.html",
+                routing::get_service(File::html(frontend::WIDGET_CONFIG_HTML)),
+            )
     }
 }
 
@@ -99,7 +164,9 @@ async fn get_store_items() -> impl IntoResponse {
             error!("Failed to fetch widget store: {:?}", err);
         })
         .ok();
-    Json(store.get_items().to_vec())
+    let json = serde_json::to_string(store.get_items()).unwrap_or_else(|_| "[]".into());
+    JsonStringResponse(json)
+    // (("Content-Type", "application/json"), json)
 }
 
 async fn get_system_config() -> impl IntoResponse {

@@ -5,11 +5,18 @@ use embassy_net::{
     dns::DnsSocket,
     tcp::client::{TcpClient, TcpClientState},
 };
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::mutex::Mutex;
 use reqwless::{
     Error,
     client::{HttpClient, TlsConfig},
     request::RequestBuilder,
 };
+
+// TcpClientState lives in .bss — never constructed on the CPU stack.
+// Mutex serializes access since only N=1 connection slot is available.
+static TCP_STATE: Mutex<CriticalSectionRawMutex, TcpClientState<1, 4096, 4096>> =
+    Mutex::new(TcpClientState::new());
 
 pub struct EspHttpClient {
     stack: Stack<'static>,
@@ -55,8 +62,10 @@ impl EspHttpClient {
     ) -> Result<Vec<u8>, Error> {
         // create dns and tcp clients
         let dns = DnsSocket::new(self.stack);
-        let tcp_state = alloc::boxed::Box::new(TcpClientState::<1, 4096, 4096>::new());
-        let tcp = TcpClient::new(self.stack, &*tcp_state);
+        // Borrow the static TcpClientState for the duration of this request.
+        // The lock ensures only one request runs at a time (N=1 socket slot).
+        let guard = TCP_STATE.lock().await;
+        let tcp = TcpClient::new(self.stack, &*guard);
 
         let mut rx_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
         let mut tx_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
