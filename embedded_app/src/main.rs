@@ -10,6 +10,7 @@
 #![recursion_limit = "256"]
 
 use defmt::info;
+use defmt::error;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
@@ -50,6 +51,7 @@ use embedded_graphics::Drawable;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
+    error!("Panic occurred");
     loop {}
 }
 

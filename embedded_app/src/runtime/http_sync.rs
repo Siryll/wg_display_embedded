@@ -1,19 +1,51 @@
-use crate::globals;
+use crate::util::globals;
 use crate::runtime::widget::widget::http;
 use alloc::string::String;
 use alloc::vec::Vec;
 use defmt::{error, info};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_time::{Duration, with_timeout};
 use esp_hal::time::Duration as HalDuration;
 use esp_rtos::CurrentThreadHandle;
 
 // HTTP request/response bridge for sync-to-async communication
 #[derive(Clone)]
 pub struct HttpRequest {
-    pub method: http::Method,
+    pub method: BridgeMethod,
     pub url: String,
     pub body: Option<Vec<u8>>,
+}
+
+#[derive(Clone, Copy)]
+pub enum BridgeMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+    Head,
+}
+
+impl BridgeMethod {
+    fn as_str(self) -> &'static str {
+        match self {
+            BridgeMethod::Get => "GET",
+            BridgeMethod::Post => "POST",
+            BridgeMethod::Put => "PUT",
+            BridgeMethod::Delete => "DELETE",
+            BridgeMethod::Head => "HEAD",
+        }
+    }
+
+    fn to_reqwless(self) -> reqwless::request::Method {
+        match self {
+            BridgeMethod::Get => reqwless::request::Method::GET,
+            BridgeMethod::Post => reqwless::request::Method::POST,
+            BridgeMethod::Put => reqwless::request::Method::PUT,
+            BridgeMethod::Delete => reqwless::request::Method::DELETE,
+            BridgeMethod::Head => reqwless::request::Method::HEAD,
+        }
+    }
 }
 
 pub type HttpResponse = Result<http::Response, ()>;
@@ -22,6 +54,31 @@ pub type HttpResponse = Result<http::Response, ()>;
 // Capacity of 1 ensures only one request can be in-flight at a time
 static HTTP_REQUEST_CHANNEL: Channel<CriticalSectionRawMutex, HttpRequest, 1> = Channel::new();
 static HTTP_RESPONSE_CHANNEL: Channel<CriticalSectionRawMutex, HttpResponse, 1> = Channel::new();
+const ASYNC_BRIDGE_TIMEOUT: Duration = Duration::from_secs(30);
+
+pub async fn http_request_async(
+    method: BridgeMethod,
+    url: String,
+    body: Option<Vec<u8>>,
+) -> Result<http::Response, ()> {
+    let request = HttpRequest { method, url, body };
+
+    match with_timeout(ASYNC_BRIDGE_TIMEOUT, HTTP_REQUEST_CHANNEL.send(request)).await {
+        Ok(()) => {}
+        Err(_) => {
+            error!("HTTP async bridge timed out while enqueueing request");
+            return Err(());
+        }
+    }
+
+    match with_timeout(ASYNC_BRIDGE_TIMEOUT, HTTP_RESPONSE_CHANNEL.receive()).await {
+        Ok(response) => response,
+        Err(_) => {
+            error!("HTTP async bridge timed out while waiting for response");
+            Err(())
+        }
+    }
+}
 
 /// Synchronous HTTP request function called from WIT host functions
 ///
@@ -33,15 +90,17 @@ pub fn http_request_sync(
     url: String,
     body: Option<Vec<u8>>,
 ) -> Result<http::Response, ()> {
+    let method = match method {
+        http::Method::Get => BridgeMethod::Get,
+        http::Method::Post => BridgeMethod::Post,
+        http::Method::Put => BridgeMethod::Put,
+        http::Method::Delete => BridgeMethod::Delete,
+        http::Method::Head => BridgeMethod::Head,
+    };
+
     info!(
         "http_request_sync: sending {} request to {}",
-        match method {
-            http::Method::Get => "GET",
-            http::Method::Post => "POST",
-            http::Method::Put => "PUT",
-            http::Method::Delete => "DELETE",
-            http::Method::Head => "HEAD",
-        },
+        method.as_str(),
         url.as_str()
     );
 
@@ -101,13 +160,7 @@ pub async fn http_handler_task() {
 
         defmt::info!(
             "Processing HTTP {} request to: {=str}",
-            match request.method {
-                http::Method::Get => "GET",
-                http::Method::Post => "POST",
-                http::Method::Put => "PUT",
-                http::Method::Delete => "DELETE",
-                http::Method::Head => "HEAD",
-            },
+            request.method.as_str(),
             request.url.as_str()
         );
 
@@ -117,16 +170,12 @@ pub async fn http_handler_task() {
 
         defmt::info!("HTTP handler: executing request");
         let response_result = async {
-            let method = match request.method {
-                http::Method::Get => reqwless::request::Method::GET,
-                http::Method::Post => reqwless::request::Method::POST,
-                http::Method::Put => reqwless::request::Method::PUT,
-                http::Method::Delete => reqwless::request::Method::DELETE,
-                http::Method::Head => reqwless::request::Method::HEAD,
-            };
-
             http_client
-                .request(method, &request.url, request.body.as_deref())
+                .request(
+                    request.method.to_reqwless(),
+                    &request.url,
+                    request.body.as_deref(),
+                )
                 .await
                 .map_err(|e| {
                     defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));

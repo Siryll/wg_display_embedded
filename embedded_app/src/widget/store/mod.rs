@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use common::models::WidgetStoreItem;
-use crate::util::globals;
+use defmt::info;
+use crate::runtime::http_sync::{self, BridgeMethod};
 use alloc::string::FromUtf8Error;
 use alloc::vec::Vec;
 
@@ -62,9 +63,16 @@ impl WidgetStore {
     /// # Returns
     /// An error if the fetch failed
     pub async fn fetch_from_store(&mut self) -> Result<(), WidgetStoreError> {
-        let http_client = globals::http_client();
-        let response_bytes = http_client.get(WIDGET_LISTING_URL).await?;
-        let body = alloc::string::String::from_utf8(response_bytes)?;
+        info!("Fetching widget store from {}", WIDGET_LISTING_URL);
+        let response = http_sync::http_request_async(
+            BridgeMethod::Get,
+            alloc::string::String::from(WIDGET_LISTING_URL),
+            None,
+        )
+        .await
+        .map_err(|_| WidgetStoreError::Http("HTTP bridge request failed"))?;
+
+        let body = alloc::string::String::from_utf8(response.bytes)?;
         self.store_items = serde_json::from_str(&body)?;
         Ok(())
     }

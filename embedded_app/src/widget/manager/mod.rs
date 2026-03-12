@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use crate::storage::StorageError;
 use crate::util::globals;
+use crate::runtime::http_sync::{self, BridgeMethod};
 
 #[derive(Debug, defmt::Format)]
 pub enum WidgetManagerError {
@@ -43,8 +44,14 @@ impl WidgetManager {
         download_url: &str,
         description: &str,
     ) -> Result<(), WidgetManagerError> {
-        let http_client = globals::http_client();
-        let bytes = http_client.get(download_url).await?;
+        // let http_client = globals::http_client();
+        let response = http_sync::http_request_async(
+            BridgeMethod::Get,
+            alloc::string::String::from(download_url),
+            None,
+        )
+        .await
+        .map_err(|_| WidgetManagerError::HttpError("HTTP bridge request failed"))?;
 
         // TODO: will be implemented when runtime is ready
         // let mut runtime = Runtime::new();
@@ -59,7 +66,7 @@ impl WidgetManager {
 
         // simplify storage by just having one call that handles everything
         globals::with_storage(|storage| {
-            storage.save_compiled_widget(widget_name, description, version, json_config, &bytes)
+            storage.save_compiled_widget(widget_name, description, version, json_config, &response.bytes)
         })
         .await?;
         Ok(())

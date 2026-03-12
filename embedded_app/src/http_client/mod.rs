@@ -5,8 +5,6 @@ use embassy_net::{
     dns::DnsSocket,
     tcp::client::{TcpClient, TcpClientState},
 };
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::mutex::Mutex;
 use reqwless::{
     Error,
     client::{HttpClient, TlsConfig},
@@ -15,8 +13,8 @@ use reqwless::{
 
 // TcpClientState lives in .bss — never constructed on the CPU stack.
 // Mutex serializes access since only N=1 connection slot is available.
-static TCP_STATE: Mutex<CriticalSectionRawMutex, TcpClientState<1, 4096, 4096>> =
-    Mutex::new(TcpClientState::new());
+// static TCP_STATE: Mutex<CriticalSectionRawMutex, TcpClientState<1, 4096, 4096>> =
+//     Mutex::new(TcpClientState::new());
 
 pub struct EspHttpClient {
     stack: Stack<'static>,
@@ -60,17 +58,28 @@ impl EspHttpClient {
         url: &str,
         body: Option<&[u8]>,
     ) -> Result<Vec<u8>, Error> {
-        // create dns and tcp clients
+        // Acquire the static TcpClientState via the async mutex.
+        //
+        // Box::new(TcpClientState::<1,4096,4096>::new()) would construct the ~8 KB struct
+        // on the CPU stack before boxing it. On bare-metal (none-elf) the effective stack
+        // is the DRAM remaining after BSS + heap; every additional Embassy task shrinks
+        // that space by the size of its TaskStorage. Once http_handler_task is present
+        // the margin is gone and the 8 KB construction overflows the stack, corrupting
+        // the return address and producing an InstrProhibited exception.
+        //
+        // Using the static mutex avoids any stack construction: TcpClientState already
+        // lives in BSS, and lock().await is safe to hold across .await points with
+        // embassy_sync::Mutex. The lock also enforces the N=1 socket-slot contract.
         let dns = DnsSocket::new(self.stack);
-        // Borrow the static TcpClientState for the duration of this request.
-        // The lock ensures only one request runs at a time (N=1 socket slot).
-        let guard = TCP_STATE.lock().await;
-        let tcp = TcpClient::new(self.stack, &*guard);
+        // let guard = TCP_STATE.lock().await;
+        let tcp_state = alloc::boxed::Box::new(TcpClientState::<1, 4096, 4096>::new());
+        let tcp = TcpClient::new(self.stack, &*tcp_state);
 
-        let mut rx_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
-        let mut tx_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
-        let mut response_buffer = alloc::vec![0u8; 4096].into_boxed_slice();
+        let mut rx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
+        let mut tx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
+        let mut response_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
 
+        info!("Creating TLS config for HTTP client...");
         let tls = TlsConfig::new(
             self.tls_seed,
             &mut rx_buffer,
@@ -78,9 +87,13 @@ impl EspHttpClient {
             reqwless::client::TlsVerify::None,
         );
 
+        info!("Creating HTTP client...");
         let mut client = HttpClient::new_with_tls(&tcp, &dns, tls);
+        info!("HTTP client created, building request...");
         let mut request = client.request(method, url).await?.body(body);
 
+        // Send the request and read the response
+        info!("Sending HTTP request to {}", url);
         let response = request.send(&mut response_buffer).await?;
 
         let status = response.status.0;

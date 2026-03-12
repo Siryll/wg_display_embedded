@@ -8,6 +8,8 @@ target/
 node_modules/
 dist/
 
+**/output.css
+
 # Editor configuration
 .vscode/
 .zed/

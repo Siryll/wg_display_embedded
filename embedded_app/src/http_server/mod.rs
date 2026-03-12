@@ -1,4 +1,4 @@
-use defmt::{error, info, warn};
+use defmt::{error, info};
 use embassy_executor::Spawner;
 use embassy_net::Stack;
 use embassy_time::Duration;
@@ -17,7 +17,7 @@ use crate::{
     widget::store::WidgetStore,
 };
 use crate::runtime::Runtime;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 
 mod frontend;
 
@@ -155,6 +155,7 @@ impl AppBuilder for Application {
 
 // endpoint implementations (stubs until common is implemented)
 
+// TODO: create WidetStore instance in globals and init the store on boot that unnecessary wait time can be avoided
 async fn get_store_items() -> impl IntoResponse {
     let mut store = WidgetStore::new();
     store
@@ -165,6 +166,7 @@ async fn get_store_items() -> impl IntoResponse {
         })
         .ok();
     let json = serde_json::to_string(store.get_items()).unwrap_or_else(|_| "[]".into());
+    info!("Serving store items: {}", json.as_str());
     JsonStringResponse(json)
     // (("Content-Type", "application/json"), json)
 }
@@ -189,11 +191,17 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> impl IntoResp
                 error!("Failed to fetch widget store before install: {:?}", err);
                 return Err(());
             }
-            let item: &WidgetStoreItem = store
+            let item = match store
                 .get_items()
                 .iter()
                 .find(|item: &&WidgetStoreItem| item.name == name)
-                .unwrap();
+            {
+                Some(item) => item,
+                None => {
+                    error!("Widget '{}' not found in fetched widget store", name.as_str());
+                    return Err(());
+                }
+            };
             (item.get_download_url(), item.description.clone())
         }
     };
@@ -235,10 +243,10 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoRespon
     }
 }
 
-async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoResponse {
+async fn get_config_schema(_widget_name: alloc::string::String) -> impl IntoResponse {
     // Return config from test widget for now
     let mut runtime = Runtime::new();
-    let mut config: String;
+    let config: String;
     unsafe {
         // let widget_binary = globals::with_storage(|storage| storage.wasm_read(&widget_name)).await;
         // let component = runtime
