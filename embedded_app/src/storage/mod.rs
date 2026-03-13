@@ -166,4 +166,9 @@ impl<'d> Storage<'d> {
         self.nvs.delete(&ns, &k)?;
         Ok(())
     }
+
+    pub fn list_widgets(&mut self) -> Result<alloc::vec::Vec<alloc::string::String>, StorageError> {
+        let config = self.get_widget_config()?;
+        Ok(config.widgets.iter().map(|w| w.name.clone()).collect())
+    }
 }
