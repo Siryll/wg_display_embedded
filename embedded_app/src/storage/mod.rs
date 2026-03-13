@@ -117,7 +117,7 @@ impl<'d> Storage<'d> {
 
     pub fn deinstall_widget(&mut self, name: &str) -> Result<(), StorageError> {
         self.wasm_read(name)?; // check if widget exists
-        self.wasm_write(name, &[])?; // remove widget data
+        self.wasm_delete(name)?; // remove widget data
         let mut config = self.get_widget_config()?;
         config.widgets.retain(|w| w.name != name);
         self.save_widget_config(&config)?;
