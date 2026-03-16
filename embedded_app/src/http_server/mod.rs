@@ -239,19 +239,44 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoRespon
 
 async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoResponse {
     let mut runtime = Runtime::new();
-    let config: String;
-    unsafe {
-        let widget_binary = globals::with_storage(|storage| storage.wasm_read(&widget_name)).await.expect("Failed to read binary");
-        let component = runtime
-            .load_module(&widget_binary)
-            .expect("Failed to load WASM module");
-        let widget = runtime
-            .instantiate(&component)
-            .expect("Failed to instantiate component");
-        config = runtime
-            .get_config_schema(&widget)
-            .expect("Failed to get config schema");
-    }
+    let widget_binary = match globals::with_storage(|storage| storage.wasm_read(&widget_name)).await {
+        Ok(binary) => binary,
+        Err(err) => {
+            error!(
+                "Failed to read widget binary for '{}': {:?}",
+                widget_name.as_str(),
+                err
+            );
+            return Json(String::from("{}"));
+        }
+    };
+
+    let config = unsafe {
+        let component = match runtime.load_module(&widget_binary) {
+            Ok(component) => component,
+            Err(_) => {
+                error!("Failed to load WASM module for '{}'", widget_name.as_str());
+                return Json(String::from("{}"));
+            }
+        };
+
+        let widget = match runtime.instantiate(&component) {
+            Ok(widget) => widget,
+            Err(_) => {
+                error!("Failed to instantiate widget '{}'", widget_name.as_str());
+                return Json(String::from("{}"));
+            }
+        };
+
+        match runtime.get_config_schema(&widget) {
+            Ok(config) => config,
+            Err(_) => {
+                error!("Failed to get config schema for '{}'", widget_name.as_str());
+                return Json(String::from("{}"));
+            }
+        }
+    };
+
     Json(config)
 }
 
