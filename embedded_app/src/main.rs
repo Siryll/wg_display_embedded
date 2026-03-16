@@ -50,9 +50,22 @@ use embedded_graphics::{
 use embedded_graphics::Drawable;
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
-    error!("Panic occurred");
-    loop {}
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    if let Some(location) = info.location() {
+        error!(
+            "Panic occurred at {=str}:{=u32}",
+            location.file(),
+            location.line()
+        );
+    } else {
+        error!("Panic occurred at unknown location");
+    }
+
+    esp_println::println!("panic info: {}", info);
+
+    loop {
+        core::hint::spin_loop();
+    }
 }
 
 extern crate alloc;
@@ -87,7 +100,7 @@ async fn main(spawner: Spawner) -> ! {
     info!("Embassy initialized!");
 
     // -- Storage setup --
-    let storage = Storage::new(peripherals.FLASH).expect("Failed to initialize storage");
+    let storage = Storage::new(peripherals.FLASH, peripherals.SHA).expect("Failed to initialize storage");
     globals::init_storage(storage).await;
 
     // Set ssid and pw on first compile, until configuration via UI is possible

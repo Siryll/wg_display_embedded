@@ -1176,6 +1176,7 @@ dependencies = [
  "hashbrown 0.16.1",
  "heapless 0.9.2",
  "mipidsi",
+ "nb 1.1.0",
  "picoserve",
  "reqwless",
  "serde",

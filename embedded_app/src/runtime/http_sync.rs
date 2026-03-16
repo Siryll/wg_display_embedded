@@ -17,13 +17,15 @@ pub struct HttpRequest {
     pub body: Option<Vec<u8>>,
 }
 
-#[derive(Clone, Copy)]
+
+#[derive(Clone, Copy, PartialEq)]
 pub enum BridgeMethod {
     Get,
     Post,
     Put,
     Delete,
     Head,
+    Download, // special method to allow for large file download and automatic re-direction
 }
 
 impl BridgeMethod {
@@ -34,12 +36,13 @@ impl BridgeMethod {
             BridgeMethod::Put => "PUT",
             BridgeMethod::Delete => "DELETE",
             BridgeMethod::Head => "HEAD",
+            BridgeMethod::Download => "DOWNLOAD",
         }
     }
 
     fn to_reqwless(self) -> reqwless::request::Method {
         match self {
-            BridgeMethod::Get => reqwless::request::Method::GET,
+            BridgeMethod::Get | BridgeMethod::Download => reqwless::request::Method::GET,
             BridgeMethod::Post => reqwless::request::Method::POST,
             BridgeMethod::Put => reqwless::request::Method::PUT,
             BridgeMethod::Delete => reqwless::request::Method::DELETE,
@@ -170,16 +173,28 @@ pub async fn http_handler_task() {
 
         defmt::info!("HTTP handler: executing request");
         let response_result = async {
-            http_client
-                .request(
-                    request.method.to_reqwless(),
-                    &request.url,
-                    request.body.as_deref(),
-                )
-                .await
-                .map_err(|e| {
-                    defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));
-                })
+            match request.method {
+                BridgeMethod::Download => {
+                    http_client
+                        .download(&request.url)
+                        .await
+                        .map_err(|e| {
+                            defmt::error!("HTTP handler download failed: {:?}", defmt::Debug2Format(&e));
+                        })
+                }
+                _ => {
+                    http_client
+                        .request(
+                            request.method.to_reqwless(),
+                            &request.url,
+                            request.body.as_deref(),
+                        )
+                        .await
+                        .map_err(|e| {
+                            defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));
+                        })
+                }
+            }
         }
         .await;
 

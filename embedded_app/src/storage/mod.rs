@@ -1,14 +1,19 @@
 #![allow(dead_code)]
 use common::models::{SystemConfiguration, WidgetInstallationData};
+use alloc::string::String;
 use alloc::string::ToString;
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;
 use esp_hal::peripherals::FLASH;
 use esp_nvs::{Key, Nvs, error::Error as NvsError};
 use esp_storage::{FlashStorage, FlashStorageError};
+use core::fmt::Write;
+use crate::util::hasher::Hasher;
+use esp_hal::peripherals::SHA;
 
 pub struct Storage<'d> {
     nvs: Nvs<FlashStorage<'d>>,
+    hasher: Hasher<'d>,
 }
 
 #[derive(Debug, defmt::Format)]
@@ -38,7 +43,7 @@ impl From<NvsError> for StorageError {
 }
 
 impl<'d> Storage<'d> {
-    pub fn new(flash: FLASH<'d>) -> Result<Self, StorageError> {
+    pub fn new(flash: FLASH<'d>, sha_peripherals: SHA<'d>) -> Result<Self, StorageError> {
         let mut flash_storage = FlashStorage::new(flash).multicore_auto_park();
 
         // read partition table using esp_bootloader_esp_idf
@@ -71,7 +76,7 @@ impl<'d> Storage<'d> {
             flash_storage,
         )?;
 
-        Ok(Self { nvs })
+        Ok(Self { nvs, hasher: Hasher::new(sha_peripherals) })
     }
 
     pub fn save_widget_config(
@@ -116,7 +121,7 @@ impl<'d> Storage<'d> {
     }
 
     pub fn deinstall_widget(&mut self, name: &str) -> Result<(), StorageError> {
-        self.wasm_read(name)?; // check if widget exists
+        // self.wasm_read(name)?; // check if widget exists
         self.wasm_delete(name)?; // remove widget data
         let mut config = self.get_widget_config()?;
         config.widgets.retain(|w| w.name != name);
@@ -144,8 +149,9 @@ impl<'d> Storage<'d> {
     #[allow(dead_code)]
     pub fn wasm_write(&mut self, name: &str, data: &[u8]) -> Result<(), StorageError> {
         info!("Writing WASM binary with name: '{}'", name);
+        let key_name = self.hasher.hash(name);
         let ns = Key::from_str("wasm");
-        let k = Key::from_str(name);
+        let k = Key::from_slice(&key_name);
         self.nvs.set(&ns, &k, data)?;
         Ok(())
     }
@@ -153,16 +159,18 @@ impl<'d> Storage<'d> {
     #[allow(dead_code)]
     pub fn wasm_read(&mut self, name: &str) -> Result<alloc::vec::Vec<u8>, StorageError> {
         info!("Reading WASM binary with name: '{}'", name);
+        let key_name = self.hasher.hash(name);
         let ns = Key::from_str("wasm");
-        let k = Key::from_str(name);
+        let k = Key::from_slice(&key_name);
         Ok(self.nvs.get(&ns, &k)?)
     }
 
     #[allow(dead_code)]
     pub fn wasm_delete(&mut self, name: &str) -> Result<(), StorageError> {
         info!("Deleting WASM binary with name: '{}'", name);
+        let key_name = self.hasher.hash(name);
         let ns = Key::from_str("wasm");
-        let k = Key::from_str(name);
+        let k = Key::from_slice(&key_name);
         self.nvs.delete(&ns, &k)?;
         Ok(())
     }

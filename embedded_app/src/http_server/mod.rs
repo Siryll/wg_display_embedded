@@ -38,9 +38,6 @@ impl IntoResponse for HtmlResponse {
     }
 }
 
-// Pre-serialize to a heap String to avoid picoserve's incremental streaming
-// serializer, which re-serializes the value multiple times synchronously
-// (blocking the embassy executor) before writing a single byte.
 struct JsonStringResponse(String);
 
 impl IntoResponse for JsonStringResponse {
@@ -153,8 +150,6 @@ impl AppBuilder for Application {
     }
 }
 
-// endpoint implementations (stubs until common is implemented)
-
 // TODO: create WidetStore instance in globals and init the store on boot that unnecessary wait time can be avoided
 async fn get_store_items() -> impl IntoResponse {
     let mut store = WidgetStore::new();
@@ -168,7 +163,6 @@ async fn get_store_items() -> impl IntoResponse {
     let json = serde_json::to_string(store.get_items()).unwrap_or_else(|_| "[]".into());
     info!("Serving store items: {}", json.as_str());
     JsonStringResponse(json)
-    // (("Content-Type", "application/json"), json)
 }
 
 async fn get_system_config() -> impl IntoResponse {
@@ -243,17 +237,13 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoRespon
     }
 }
 
-async fn get_config_schema(_widget_name: alloc::string::String) -> impl IntoResponse {
-    // Return config from test widget for now
+async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoResponse {
     let mut runtime = Runtime::new();
     let config: String;
     unsafe {
-        // let widget_binary = globals::with_storage(|storage| storage.wasm_read(&widget_name)).await;
-        // let component = runtime
-        //     .load_module(widget_binary)
-        //     .expect("Failed to load WASM module");
+        let widget_binary = globals::with_storage(|storage| storage.wasm_read(&widget_name)).await.expect("Failed to read binary");
         let component = runtime
-            .load_module(include_bytes!("../runtime/test_widget_new.compiled"))
+            .load_module(&widget_binary)
             .expect("Failed to load WASM module");
         let widget = runtime
             .instantiate(&component)
