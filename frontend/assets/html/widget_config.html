@@ -19,6 +19,9 @@
         let schema = fetch('/config_schema/' + encodeURI(widgetName))
             .then(response => response.json())
             .then(schema => {
+                if (typeof schema === 'string') {
+                    schema = JSON.parse(schema)
+                }
                 console.log(schema)
                 $("h1").text(widgetName + " Configuration")
                 $('form').jsonForm({
