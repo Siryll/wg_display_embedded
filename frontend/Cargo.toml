@@ -19,3 +19,10 @@ wasm-bindgen = "0.2.83"
 gloo-net = "0.4.0"
 gloo-console = "0.3.0"
 wasm-bindgen-futures = "0.4.33"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -21,7 +21,13 @@ use alloc::string::String;
 
 mod frontend;
 
-pub const WEB_TASK_POOL_SIZE: usize = 1;
+pub const WEB_TASK_POOL_SIZE: usize = 2;
+const TCP_BUFFER_SIZE: usize = 8192;
+const HTTP_BUFFER_SIZE: usize = 16384;
+const STATIC_CACHE_HEADER: (&str, &str) = (
+    "Cache-Control",
+    "public, max-age=3600, stale-while-revalidate=86400",
+);
 
 struct HtmlResponse(String);
 
@@ -101,47 +107,83 @@ impl AppBuilder for Application {
             )
             .route(
                 "/frontend.js",
-                routing::get_service(File::with_content_type("application/javascript", frontend::FRONTEND_JS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/javascript",
+                    frontend::FRONTEND_JS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/frontend_bg.wasm",
                 routing::get_service(File::with_content_type_and_headers(
                     "application/wasm",
                     frontend::FRONTEND_WASM_GZ,
-                    &[("Content-Encoding", "gzip")],
+                    &[("Content-Encoding", "gzip"), STATIC_CACHE_HEADER],
                 )),
             )
             .route(
                 "/output.css",
-                routing::get_service(File::with_content_type("text/css", frontend::OUTPUT_CSS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "text/css",
+                    frontend::OUTPUT_CSS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/logo.png",
-                routing::get_service(File::with_content_type("image/png", frontend::LOGO_PNG)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "image/png",
+                    frontend::LOGO_PNG,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/css/bootstrap.css",
-                routing::get_service(File::with_content_type("text/css", frontend::BOOTSTRAP_CSS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "text/css",
+                    frontend::BOOTSTRAP_CSS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/js/jquery.min.js",
-                routing::get_service(File::with_content_type("application/javascript", frontend::JQUERY_JS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/javascript",
+                    frontend::JQUERY_JS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/js/underscore.js",
-                routing::get_service(File::with_content_type("application/javascript", frontend::UNDERSCORE_JS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/javascript",
+                    frontend::UNDERSCORE_JS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/js/jsonform.js",
-                routing::get_service(File::with_content_type("application/javascript", frontend::JSONFORM_JS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/javascript",
+                    frontend::JSONFORM_JS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/js/jsonform-defaults.js",
-                routing::get_service(File::with_content_type("application/javascript", frontend::JSONFORM_DEFAULTS_JS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/javascript",
+                    frontend::JSONFORM_DEFAULTS_JS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/js/jsonform-split.js",
-                routing::get_service(File::with_content_type("application/javascript", frontend::JSONFORM_SPLIT_JS)),
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/javascript",
+                    frontend::JSONFORM_SPLIT_JS,
+                    &[STATIC_CACHE_HEADER],
+                )),
             )
             .route(
                 "/assets/html/widget_config.html",
@@ -339,9 +381,9 @@ impl Default for WebApp {
             picoserve::Config,
             picoserve::Config::new(picoserve::Timeouts {
                 start_read_request: Duration::from_secs(5),
-                read_request: Duration::from_secs(1),
-                write: Duration::from_secs(1),
-                persistent_start_read_request: Duration::from_secs(1),
+                read_request: Duration::from_secs(5),
+                write: Duration::from_secs(15),
+                persistent_start_read_request: Duration::from_secs(5),
             })
             .keep_connection_alive()
         );
@@ -378,9 +420,9 @@ pub async fn web_task(
 ) -> ! {
     let port = 80;
     // Use vec![] to allocate directly on heap (PSRAM), avoiding stack temporaries
-    let mut tcp_rx_buffer = alloc::vec![0u8; 1024].into_boxed_slice();
-    let mut tcp_tx_buffer = alloc::vec![0u8; 1024].into_boxed_slice();
-    let mut http_buffer = alloc::vec![0u8; 2048].into_boxed_slice();
+    let mut tcp_rx_buffer = alloc::vec![0u8; TCP_BUFFER_SIZE].into_boxed_slice();
+    let mut tcp_tx_buffer = alloc::vec![0u8; TCP_BUFFER_SIZE].into_boxed_slice();
+    let mut http_buffer = alloc::vec![0u8; HTTP_BUFFER_SIZE].into_boxed_slice();
 
     picoserve::Server::new(router, config, &mut http_buffer)
         .listen_and_serve(task_id, stack, port, &mut tcp_rx_buffer, &mut tcp_tx_buffer)
