@@ -21,9 +21,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: embedded_app build
-            path: embedded_app
-            command: cargo build --release
+          - name: build
+            command: make build
           - name: embedded_app fmt
             path: embedded_app
             command: cargo fmt --all -- --check
