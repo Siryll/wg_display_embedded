@@ -23,7 +23,6 @@ macro_rules! mk_static {
 }
 
 // Struct to hold relevenat states for other modules (http server/client)
-#[allow(dead_code)]
 pub struct Wifi {
     stack: Stack<'static>,
     tls_seed: u64,

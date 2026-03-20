@@ -1,5 +1,3 @@
-#![allow(dead_code)] // will be used in the future
-
 mod platform;
 
 mod host_api;
@@ -26,6 +24,7 @@ impl WidgetState {
     }
 }
 
+#[allow(dead_code)]
 pub struct CompiledModule {
     data: Vec<u8>,
     compatibility_hash: u64,
@@ -182,9 +181,5 @@ impl Runtime {
 
     pub fn get_widget_version(&mut self, widget: &Widget) -> wasmtime::Result<String> {
         widget.call_get_version(&mut self.store)
-    }
-
-    pub fn engine(&self) -> &Engine {
-        &self.engine
     }
 }

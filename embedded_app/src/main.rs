@@ -9,8 +9,8 @@
 #![deny(clippy::large_stack_frames)]
 #![recursion_limit = "256"]
 
-use defmt::info;
 use defmt::error;
+use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
@@ -100,7 +100,8 @@ async fn main(spawner: Spawner) -> ! {
     info!("Embassy initialized!");
 
     // -- Storage setup --
-    let storage = Storage::new(peripherals.FLASH, peripherals.SHA).expect("Failed to initialize storage");
+    let storage =
+        Storage::new(peripherals.FLASH, peripherals.SHA).expect("Failed to initialize storage");
     globals::init_storage(storage).await;
 
     // Set ssid and pw on first compile, until configuration via UI is possible

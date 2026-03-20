@@ -1,3 +1,4 @@
+use alloc::format;
 use defmt::{error, info};
 use embassy_executor::Spawner;
 use embassy_net::Stack;
@@ -5,24 +6,19 @@ use embassy_time::Duration;
 use esp_alloc as _;
 use picoserve::{
     AppBuilder, AppRouter, Router,
+    extract::JsonWithUnescapeBufferSize,
     response::{File, IntoResponse, Json},
     routing::{self, parse_path_segment},
-    extract::JsonWithUnescapeBufferSize,
 };
-use alloc::format;
-use serde_json;
 
-use common::models::WidgetStoreItem;
-use crate::widget::manager::WidgetManager;
-use common::models::{InstallAction, SystemConfiguration};
-use crate::{
-    util::globals,
-    widget::store::WidgetStore,
-};
 use crate::runtime::Runtime;
+use crate::widget::manager::WidgetManager;
+use crate::{util::globals, widget::store::WidgetStore};
+use common::models::WidgetStoreItem;
+use common::models::{InstallAction, SystemConfiguration};
 
-mod frontend;
 mod custom_types;
+mod frontend;
 
 use custom_types::{ConfigWrapper, Error, HandlerResult, HtmlResponse, JsonStringResponse};
 
@@ -43,7 +39,10 @@ impl AppBuilder for Application {
         picoserve::Router::new()
             .route("/get_store_items", routing::get(get_store_items))
             .route("/install_widget", routing::post(post_install_widget))
-            .route("/system_config", routing::get(get_system_config).post(post_system_config))
+            .route(
+                "/system_config",
+                routing::get(get_system_config).post(post_system_config),
+            )
             // "/deinstall_widget/<widget_name>"
             .route(
                 (
@@ -77,10 +76,7 @@ impl AppBuilder for Application {
                 routing::get(get_widget_config),
             )
             // routes to serve frontend files
-            .route(
-                "/",
-                routing::get_service(File::html(frontend::INDEX_HTML)),
-            )
+            .route("/", routing::get_service(File::html(frontend::INDEX_HTML)))
             .route(
                 "/frontend.js",
                 routing::get_service(File::with_content_type_and_headers(
@@ -171,7 +167,10 @@ impl AppBuilder for Application {
 // TODO: create WidetStore instance in globals and init the store on boot that unnecessary wait time can be avoided
 async fn get_store_items() -> HandlerResult<JsonStringResponse> {
     let mut store = WidgetStore::new();
-    store.fetch_from_store().await.map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
+    store
+        .fetch_from_store()
+        .await
+        .map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
     let json = serde_json::to_string(store.get_items())
         .map_err(|_| Error::new("Failed to serialize widget store"))?;
     info!("Serving store items: {}", json.as_str());
@@ -186,7 +185,9 @@ async fn get_system_config() -> HandlerResult<Json<SystemConfiguration>> {
             let default_config = SystemConfiguration::default();
             globals::with_storage(|storage| storage.save_widget_config(&default_config))
                 .await
-                .map_err(|e| Error::new(format!("Failed to save default system config: {:?}", e)))?;
+                .map_err(|e| {
+                    Error::new(format!("Failed to save default system config: {:?}", e))
+                })?;
             Ok(Json(default_config))
         }
     }
@@ -197,7 +198,10 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult
         InstallAction::FromUrl(url) => (url, alloc::string::String::from("No description")),
         InstallAction::FromStoreItemName(name) => {
             let mut store = WidgetStore::new();
-            store.fetch_from_store().await.map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
+            store
+                .fetch_from_store()
+                .await
+                .map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
             let item = store
                 .get_items()
                 .iter()
@@ -227,9 +231,12 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> HandlerResult<(
         .map_err(|e| Error::new(format!("Failed to deinstall widget: {:?}", e)))
 }
 
-async fn get_config_schema(widget_name: alloc::string::String) -> HandlerResult<JsonStringResponse> {
+async fn get_config_schema(
+    widget_name: alloc::string::String,
+) -> HandlerResult<JsonStringResponse> {
     let mut runtime = Runtime::new();
-    let widget_binary = match globals::with_storage(|storage| storage.wasm_read(&widget_name)).await {
+    let widget_binary = match globals::with_storage(|storage| storage.wasm_read(&widget_name)).await
+    {
         Ok(binary) => binary,
         Err(err) => {
             error!(
@@ -277,7 +284,10 @@ async fn post_widget_config(
     widget_name: alloc::string::String,
     Json(config): Json<ConfigWrapper>,
 ) -> HandlerResult<()> {
-    info!("POST /widget_config/{} - received config", widget_name.as_str());
+    info!(
+        "POST /widget_config/{} - received config",
+        widget_name.as_str()
+    );
 
     let config_string = config.config;
 
@@ -302,7 +312,10 @@ async fn post_widget_config(
 }
 
 async fn get_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
-    info!("Serving widget configuration page for: {}", widget_name.as_str());
+    info!(
+        "Serving widget configuration page for: {}",
+        widget_name.as_str()
+    );
     let html = frontend::WIDGET_CONFIG_HTML.replace("{{WIDGET_NAME}}", widget_name.as_str());
     HtmlResponse(html)
 }

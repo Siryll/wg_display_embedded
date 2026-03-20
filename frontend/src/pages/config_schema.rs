@@ -1,5 +1,5 @@
 use gloo_net::http::Request;
-use yew::{function_component, html, use_effect_with_deps, use_state, AttrValue, Html, Properties};
+use yew::{AttrValue, Html, Properties, function_component, html, use_effect_with_deps, use_state};
 use yew_hooks::use_clipboard;
 
 use crate::components::divider::DividerComponent;

@@ -1,9 +1,8 @@
-#![allow(dead_code)]
-use common::models::WidgetStoreItem;
-use defmt::info;
 use crate::runtime::http_sync::{self, BridgeMethod};
 use alloc::string::FromUtf8Error;
 use alloc::vec::Vec;
+use common::models::WidgetStoreItem;
+use defmt::info;
 
 const WIDGET_LISTING_URL: &str =
     "https://raw.githubusercontent.com/eliabieri/wg_display/main/widget_store.json";

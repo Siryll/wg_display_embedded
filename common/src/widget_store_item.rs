@@ -2,9 +2,9 @@
 extern crate alloc;
 
 #[cfg(not(feature = "yew"))]
-use alloc::string::String;
-#[cfg(not(feature = "yew"))]
 use alloc::format;
+#[cfg(not(feature = "yew"))]
+use alloc::string::String;
 
 use crate::models::WidgetStoreItem;
 

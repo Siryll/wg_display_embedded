@@ -3,7 +3,7 @@ use gloo_console::log;
 use gloo_net::http::Request;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlButtonElement, MouseEvent};
-use yew::{function_component, html, use_effect_with_deps, use_reducer, use_state, Callback, Html};
+use yew::{Callback, Html, function_component, html, use_effect_with_deps, use_reducer, use_state};
 use yew_feather::PlusCircle;
 use yew_router::prelude::Link;
 

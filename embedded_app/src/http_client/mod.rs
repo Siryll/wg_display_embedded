@@ -16,7 +16,6 @@ pub struct EspHttpClient {
     tls_seed: u64,
 }
 
-#[allow(dead_code)]
 impl EspHttpClient {
     pub fn new(stack: Stack<'static>, tls_seed: u64) -> Self {
         Self { stack, tls_seed }
@@ -27,21 +26,25 @@ impl EspHttpClient {
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn post(&self, url: &str, body: Option<&[u8]>) -> Result<Vec<u8>, Error> {
         self.request(reqwless::request::Method::POST, url, body)
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn put(&self, url: &str, body: Option<&[u8]>) -> Result<Vec<u8>, Error> {
         self.request(reqwless::request::Method::PUT, url, body)
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn delete(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.request(reqwless::request::Method::DELETE, url, None)
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn head(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.request(reqwless::request::Method::HEAD, url, None)
             .await

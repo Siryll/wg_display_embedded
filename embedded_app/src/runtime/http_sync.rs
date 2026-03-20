@@ -1,5 +1,5 @@
-use crate::util::globals;
 use crate::runtime::widget::widget::http;
+use crate::util::globals;
 use alloc::string::String;
 use alloc::vec::Vec;
 use defmt::{error, info};
@@ -16,7 +16,6 @@ pub struct HttpRequest {
     pub url: String,
     pub body: Option<Vec<u8>>,
 }
-
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BridgeMethod {
@@ -174,26 +173,22 @@ pub async fn http_handler_task() {
         defmt::info!("HTTP handler: executing request");
         let response_result = async {
             match request.method {
-                BridgeMethod::Download => {
-                    http_client
-                        .download(&request.url)
-                        .await
-                        .map_err(|e| {
-                            defmt::error!("HTTP handler download failed: {:?}", defmt::Debug2Format(&e));
-                        })
-                }
-                _ => {
-                    http_client
-                        .request(
-                            request.method.to_reqwless(),
-                            &request.url,
-                            request.body.as_deref(),
-                        )
-                        .await
-                        .map_err(|e| {
-                            defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));
-                        })
-                }
+                BridgeMethod::Download => http_client.download(&request.url).await.map_err(|e| {
+                    defmt::error!(
+                        "HTTP handler download failed: {:?}",
+                        defmt::Debug2Format(&e)
+                    );
+                }),
+                _ => http_client
+                    .request(
+                        request.method.to_reqwless(),
+                        &request.url,
+                        request.body.as_deref(),
+                    )
+                    .await
+                    .map_err(|e| {
+                        defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));
+                    }),
             }
         }
         .await;

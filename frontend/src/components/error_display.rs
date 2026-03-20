@@ -1,5 +1,5 @@
 //! Simple widget to display an error message.
-use yew::{function_component, html, Html, Properties, UseStateHandle};
+use yew::{Html, Properties, UseStateHandle, function_component, html};
 use yew_feather::AlertTriangle;
 
 #[derive(Properties, PartialEq)]

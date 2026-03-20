@@ -1,13 +1,12 @@
-#![allow(dead_code)]
-use common::models::{SystemConfiguration, WidgetInstallationData};
+use crate::util::hasher::Hasher;
 use alloc::string::ToString;
+use common::models::{SystemConfiguration, WidgetInstallationData};
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;
 use esp_hal::peripherals::FLASH;
+use esp_hal::peripherals::SHA;
 use esp_nvs::{Key, Nvs, error::Error as NvsError};
 use esp_storage::{FlashStorage, FlashStorageError};
-use crate::util::hasher::Hasher;
-use esp_hal::peripherals::SHA;
 
 pub struct Storage<'d> {
     nvs: Nvs<FlashStorage<'d>>,
@@ -89,25 +88,24 @@ impl<'d> Storage<'d> {
             flash_storage,
         )?;
 
-        Ok(Self { nvs, hasher: Hasher::new(sha_peripherals) })
+        Ok(Self {
+            nvs,
+            hasher: Hasher::new(sha_peripherals),
+        })
     }
 
     pub fn save_widget_config(
         &mut self,
         system_config: &SystemConfiguration,
     ) -> Result<(), StorageError> {
-        let ns = Key::from_str("config");
-        let k = Key::from_str("system_config");
         let value = serde_json::to_string(system_config)
             .map_err(|_| StorageError::Nvs(NvsError::FlashError))?;
-        self.nvs.set(&ns, &k, value.as_str())?;
+        self.config_set("system_config", &value)?;
         Ok(())
     }
 
     pub fn get_widget_config(&mut self) -> Result<SystemConfiguration, StorageError> {
-        let ns = Key::from_str("config");
-        let k = Key::from_str("system_config");
-        let value: alloc::string::String = self.nvs.get(&ns, &k)?;
+        let value: alloc::string::String = self.config_get("system_config")?;
         let config: SystemConfiguration =
             serde_json::from_str(&value).map_err(|_| StorageError::Nvs(NvsError::FlashError))?;
         Ok(config)
@@ -142,7 +140,6 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn config_set(&mut self, key: &str, value: &str) -> Result<(), StorageError> {
         info!("Setting config for key '{}'", key);
         let ns = Key::from_str("config");
@@ -151,7 +148,6 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn config_get(&mut self, key: &str) -> Result<alloc::string::String, StorageError> {
         info!("Getting config for key '{}'", key);
         let ns = Key::from_str("config");
@@ -159,32 +155,39 @@ impl<'d> Storage<'d> {
         Ok(self.nvs.get(&ns, &k)?)
     }
 
-    #[allow(dead_code)]
     pub fn wasm_write(&mut self, name: &str, data: &[u8]) -> Result<(), StorageError> {
         let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
-        info!("Writing WASM binary with name: '{}' and key: {:?}", name, key);
+        info!(
+            "Writing WASM binary with name: '{}' and key: {:?}",
+            name, key
+        );
         self.nvs.set(&ns, &key, data)?;
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn wasm_read(&mut self, name: &str) -> Result<alloc::vec::Vec<u8>, StorageError> {
         let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
-        info!("Reading WASM binary with name: '{}' and key: {:?}", name, key);
+        info!(
+            "Reading WASM binary with name: '{}' and key: {:?}",
+            name, key
+        );
         Ok(self.nvs.get(&ns, &key)?)
     }
 
-    #[allow(dead_code)]
     pub fn wasm_delete(&mut self, name: &str) -> Result<(), StorageError> {
         let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
-        info!("Deleting WASM binary with name: '{}' and key: {:?}", name, key);
+        info!(
+            "Deleting WASM binary with name: '{}' and key: {:?}",
+            name, key
+        );
         self.nvs.delete(&ns, &key)?;
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn list_widgets(&mut self) -> Result<alloc::vec::Vec<alloc::string::String>, StorageError> {
         let config = self.get_widget_config()?;
         Ok(config.widgets.iter().map(|w| w.name.clone()).collect())

@@ -62,7 +62,10 @@ async fn install_widget(
                 navigator.push(&crate::Route::Home);
             }
             _ => {
-                let error_text = response.text().await.unwrap_or("Failed to install widget".to_string());
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or("Failed to install widget".to_string());
                 error.set(Some(error_text));
                 log!("Failed to install widget");
             }
@@ -116,7 +119,8 @@ pub fn install() -> Html {
                 let widget_store_items = widget_store_items.clone();
                 let action = action.clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    install_widget(action, error, is_installing, navigator, widget_store_items).await;
+                    install_widget(action, error, is_installing, navigator, widget_store_items)
+                        .await;
                 });
             }
         })
@@ -184,7 +188,10 @@ pub fn install() -> Html {
                                 load_store_items(widget_store_items, error).await;
                             }
                             _ => {
-                                let error_text = response.text().await.unwrap_or("Failed to deinstall widget".to_string());
+                                let error_text = response
+                                    .text()
+                                    .await
+                                    .unwrap_or("Failed to deinstall widget".to_string());
                                 error.set(Some(error_text));
                                 log!("Failed to deinstall widget");
                             }

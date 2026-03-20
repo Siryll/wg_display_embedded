@@ -15,18 +15,33 @@ env:
 
 jobs:
   rust-checks:
-    name: Rust Checks
+    name: Rust Checks (${{ matrix.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        action:
-          - command: build
-            args: --release
-          - command: fmt
-            args: --all -- --check
-          - command: clippy
-            args: --all-features --workspace -- -D warnings
+        include:
+          - name: embedded_app build
+            path: embedded_app
+            command: cargo build --release
+          - name: embedded_app fmt
+            path: embedded_app
+            command: cargo fmt --all -- --check
+          - name: embedded_app clippy
+            path: embedded_app
+            command: cargo clippy --all-features --workspace -- -D warnings
+          - name: common fmt
+            path: common
+            command: cargo fmt --all -- --check
+          - name: common clippy
+            path: common
+            command: cargo clippy --all-features --workspace -- -D warnings
+          - name: frontend fmt
+            path: frontend
+            command: cargo fmt --all -- --check
+          - name: frontend clippy
+            path: frontend
+            command: cargo clippy --all-features --workspace -- -D warnings
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -38,5 +53,11 @@ jobs:
           ldproxy: false
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            embedded_app
+            common
+            frontend
       - name: Run command
-        run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+        working-directory: ${{ matrix.path }}
+        run: ${{ matrix.command }}
