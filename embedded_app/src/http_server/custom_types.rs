@@ -1,5 +1,6 @@
 use alloc::string::String;
 use picoserve::response::{IntoResponse, StatusCode};
+use serde::Deserialize;
 
 #[derive(Clone, Debug)]
 pub struct Error(pub String);
@@ -61,6 +62,11 @@ impl IntoResponse for JsonStringResponse {
             .write_to(connection, response_writer)
             .await
     }
+}
+
+#[derive(Deserialize)]
+pub struct ConfigWrapper {
+    pub config: String,
 }
 
 

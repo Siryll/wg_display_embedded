@@ -31,12 +31,15 @@
                         if (errors) {
                             $('#res').html('<pre>' + JSON.stringify(errors) + '</pre>')
                         } else {
+                            const payload = {
+                                config: JSON.stringify(values)
+                            }
                             fetch('/widget_config/' + encodeURI(widgetName), {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
-                                body: JSON.stringify(values)
+                                body: JSON.stringify(payload)
                             })
                             window.location.href = '/'
                         }

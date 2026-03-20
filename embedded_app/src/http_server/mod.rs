@@ -10,6 +10,7 @@ use picoserve::{
     extract::JsonWithUnescapeBufferSize,
 };
 use alloc::format;
+use serde_json;
 
 use common::models::WidgetStoreItem;
 use crate::widget::manager::WidgetManager;
@@ -23,7 +24,7 @@ use crate::runtime::Runtime;
 mod frontend;
 mod custom_types;
 
-use custom_types::{Error, HandlerResult, HtmlResponse, JsonStringResponse};
+use custom_types::{ConfigWrapper, Error, HandlerResult, HtmlResponse, JsonStringResponse};
 
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
@@ -59,7 +60,7 @@ impl AppBuilder for Application {
                 ),
                 routing::get(get_config_schema),
             )
-            // "/widget_configuration/<widget_name>"
+            // "/widget_config/<widget_name>"
             .route(
                 (
                     "/widget_config",
@@ -274,8 +275,12 @@ async fn get_config_schema(widget_name: alloc::string::String) -> HandlerResult<
 
 async fn post_widget_config(
     widget_name: alloc::string::String,
-    Json(config): Json<alloc::string::String>,
+    Json(config): Json<ConfigWrapper>,
 ) -> HandlerResult<()> {
+    info!("POST /widget_config/{} - received config", widget_name.as_str());
+
+    let config_string = config.config;
+
     let mut system_config = globals::with_storage(|storage| storage.get_widget_config())
         .await
         .map_err(|e| Error::new(format!("Failed to get system config: {:?}", e)))?;
@@ -285,7 +290,10 @@ async fn post_widget_config(
         .iter_mut()
         .find(|w| w.name == widget_name.as_str())
     {
-        widget.json_config = config;
+        info!("Updating widget config for: {}", widget_name.as_str());
+        widget.json_config = config_string;
+    } else {
+        error!("Widget not found: {}", widget_name.as_str());
     }
 
     globals::with_storage(|storage| storage.save_widget_config(&system_config))
