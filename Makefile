@@ -8,9 +8,9 @@ help:
 	@echo "ESP32 WG Display Build System"
 	@echo ""
 	@echo "Targets:"
-	@echo "  frontend    - Build frontend with trunk"
-	@echo "  app-release - Build ESP32 application (release)"
-	@echo "  build       - Build frontend + prepare + app"
+	@echo "  frontend    - Build frontend"
+	@echo "  run         - Build and flash ESP32 application"
+	@echo "  build       - Build all components"
 	@echo "  clean       - Clean all build artifacts"
 
 frontend:
