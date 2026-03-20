@@ -8,6 +8,7 @@ use picoserve::{
     response::{File, IntoResponse, Json},
     routing::{self, parse_path_segment},
 };
+use alloc::format;
 
 use common::models::WidgetStoreItem;
 use crate::widget::manager::WidgetManager;
@@ -17,9 +18,11 @@ use crate::{
     widget::store::WidgetStore,
 };
 use crate::runtime::Runtime;
-use alloc::string::String;
 
 mod frontend;
+mod custom_types;
+
+use custom_types::{Error, HandlerResult, HtmlResponse, JsonStringResponse};
 
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
@@ -28,35 +31,6 @@ const STATIC_CACHE_HEADER: (&str, &str) = (
     "Cache-Control",
     "public, max-age=3600, stale-while-revalidate=86400",
 );
-
-struct HtmlResponse(String);
-
-// implementation for the get_widget_config to avoid memory leak
-impl IntoResponse for HtmlResponse {
-    async fn write_to<R: picoserve::io::Read, W: picoserve::response::ResponseWriter<Error = R::Error>>(
-        self,
-        connection: picoserve::response::Connection<'_, R>,
-        response_writer: W,
-    ) -> Result<picoserve::ResponseSent, W::Error> {
-        (("Content-Type", "text/html; charset=utf-8"), self.0.as_str())
-            .write_to(connection, response_writer)
-            .await
-    }
-}
-
-struct JsonStringResponse(String);
-
-impl IntoResponse for JsonStringResponse {
-    async fn write_to<R: picoserve::io::Read, W: picoserve::response::ResponseWriter<Error = R::Error>>(
-        self,
-        connection: picoserve::response::Connection<'_, R>,
-        response_writer: W,
-    ) -> Result<picoserve::ResponseSent, W::Error> {
-        (("Content-Type", "application/json"), self.0.as_str())
-            .write_to(connection, response_writer)
-            .await
-    }
-}
 
 pub struct Application;
 
@@ -193,93 +167,63 @@ impl AppBuilder for Application {
 }
 
 // TODO: create WidetStore instance in globals and init the store on boot that unnecessary wait time can be avoided
-async fn get_store_items() -> impl IntoResponse {
+async fn get_store_items() -> HandlerResult<JsonStringResponse> {
     let mut store = WidgetStore::new();
-    store
-        .fetch_from_store()
-        .await
-        .map_err(|err| {
-            error!("Failed to fetch widget store: {:?}", err);
-        })
-        .ok();
-    let json = serde_json::to_string(store.get_items()).unwrap_or_else(|_| "[]".into());
+    store.fetch_from_store().await.map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
+    let json = serde_json::to_string(store.get_items())
+        .map_err(|_| Error::new("Failed to serialize widget store"))?;
     info!("Serving store items: {}", json.as_str());
-    JsonStringResponse(json)
+    Ok(JsonStringResponse(json))
 }
 
-async fn get_system_config() -> impl IntoResponse {
-    let res = globals::with_storage(|storage| storage.get_widget_config()).await;
-    match res {
-        Ok(config) => Json(config),
-        Err(err) => {
-            error!("Failed to load system config: {:?}", err);
-            Json(SystemConfiguration::default())
+async fn get_system_config() -> HandlerResult<Json<SystemConfiguration>> {
+    match globals::with_storage(|storage| storage.get_widget_config()).await {
+        Ok(config) => Ok(Json(config)),
+        Err(_) => {
+            // try to create default config
+            let default_config = SystemConfiguration::default();
+            globals::with_storage(|storage| storage.save_widget_config(&default_config))
+                .await
+                .map_err(|e| Error::new(format!("Failed to save default system config: {:?}", e)))?;
+            Ok(Json(default_config))
         }
     }
 }
 
-async fn post_install_widget(Json(action): Json<InstallAction>) -> impl IntoResponse {
+async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult<()> {
     let (download_url, description) = match action {
         InstallAction::FromUrl(url) => (url, alloc::string::String::from("No description")),
         InstallAction::FromStoreItemName(name) => {
             let mut store = WidgetStore::new();
-            if let Err(err) = store.fetch_from_store().await {
-                error!("Failed to fetch widget store before install: {:?}", err);
-                return Err(());
-            }
-            let item = match store
+            store.fetch_from_store().await.map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
+            let item = store
                 .get_items()
                 .iter()
                 .find(|item: &&WidgetStoreItem| item.name == name)
-            {
-                Some(item) => item,
-                None => {
-                    error!("Widget '{}' not found in fetched widget store", name.as_str());
-                    return Err(());
-                }
-            };
+                .ok_or_else(|| Error::new(format!("Widget '{}' not found", name)))?;
             (item.get_download_url(), item.description.clone())
         }
     };
     info!("Installing widget from URL {}", download_url.as_str());
-    let result = WidgetManager::install_widget(download_url.as_str(), &description).await;
-    match result {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            error!("{}", err);
-            // TODO: add proper errors
-            Err(())
-        }
-    }
+    WidgetManager::install_widget(download_url.as_str(), &description)
+        .await
+        .map_err(|e| Error::new(format!("Failed to install widget: {:?}", e)))?;
+    Ok(())
 }
 
-async fn post_system_config(Json(config): Json<SystemConfiguration>) -> impl IntoResponse {
-    let result = globals::with_storage(|storage| storage.save_widget_config(&config)).await;
-    match result {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            error!("Failed to save system config: {:?}", err);
-            Err(())
-        }
-    }
+async fn post_system_config(Json(config): Json<SystemConfiguration>) -> HandlerResult<()> {
+    globals::with_storage(|storage| storage.save_widget_config(&config))
+        .await
+        .map_err(|e| Error::new(format!("Failed to save system config: {:?}", e)))
 }
 
-async fn deinstall_widget(widget_name: alloc::string::String) -> impl IntoResponse {
-    let result = WidgetManager::deinstall_widget(widget_name.as_str()).await;
-    match result {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            error!(
-                "Failed to deinstall widget {}: {:?}",
-                widget_name.as_str(),
-                err
-            );
-            Err(())
-        }
-    }
+async fn deinstall_widget(widget_name: alloc::string::String) -> HandlerResult<()> {
+    WidgetManager::deinstall_widget(widget_name.as_str())
+        .await
+        .map_err(|e| Error::new(format!("Failed to deinstall widget: {:?}", e)))
 }
 
-async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoResponse {
+async fn get_config_schema(widget_name: alloc::string::String) -> HandlerResult<Json<serde_json::Value>> {
     let mut runtime = Runtime::new();
     let widget_binary = match globals::with_storage(|storage| storage.wasm_read(&widget_name)).await {
         Ok(binary) => binary,
@@ -289,7 +233,7 @@ async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoRespo
                 widget_name.as_str(),
                 err
             );
-            return Json(String::from("{}"));
+            return Err(Error::new(format!("Widget '{}' not found", widget_name)));
         }
     };
 
@@ -298,7 +242,7 @@ async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoRespo
             Ok(component) => component,
             Err(_) => {
                 error!("Failed to load WASM module for '{}'", widget_name.as_str());
-                return Json(String::from("{}"));
+                return Err(Error::new("Failed to load WASM module"));
             }
         };
 
@@ -306,7 +250,7 @@ async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoRespo
             Ok(widget) => widget,
             Err(_) => {
                 error!("Failed to instantiate widget '{}'", widget_name.as_str());
-                return Json(String::from("{}"));
+                return Err(Error::new("Failed to instantiate widget"));
             }
         };
 
@@ -314,57 +258,41 @@ async fn get_config_schema(widget_name: alloc::string::String) -> impl IntoRespo
             Ok(config) => config,
             Err(_) => {
                 error!("Failed to get config schema for '{}'", widget_name.as_str());
-                return Json(String::from("{}"));
+                return Err(Error::new("Failed to get widget config schema"));
             }
         }
     };
 
-    Json(config)
+    let config_value = serde_json::from_str::<serde_json::Value>(&config)
+        .map_err(|_| Error::new("Widget config schema is not valid JSON"))?;
+
+    Ok(Json(config_value))
 }
 
 async fn post_widget_config(
     widget_name: alloc::string::String,
     Json(config): Json<alloc::string::String>,
-) -> impl IntoResponse {
-    let mut system_config = match globals::with_storage(|storage| storage.get_widget_config()).await
+) -> HandlerResult<()> {
+    let mut system_config = globals::with_storage(|storage| storage.get_widget_config())
+        .await
+        .map_err(|e| Error::new(format!("Failed to get system config: {:?}", e)))?;
+
+    if let Some(widget) = system_config
+        .widgets
+        .iter_mut()
+        .find(|w| w.name == widget_name.as_str())
     {
-        Ok(system_config) => system_config,
-        Err(err) => {
-            error!(
-                "Could not load system config to save widget config for widget {}: {}",
-                widget_name.as_str(),
-                err
-            );
-            return Err(());
-        }
-    };
-
-    system_config.widgets.iter_mut().for_each(|widget| {
-        if widget.name == widget_name {
-            widget.json_config = config.clone();
-        }
-    });
-
-    match globals::with_storage(|storage| storage.save_widget_config(&system_config)).await {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            error!(
-                "Could not save widget config for widget {}: {}",
-                widget_name.as_str(),
-                err
-            );
-            Err(())
-        }
+        widget.json_config = config;
     }
+
+    globals::with_storage(|storage| storage.save_widget_config(&system_config))
+        .await
+        .map_err(|e| Error::new(format!("Failed to save widget config: {:?}", e)))
 }
 
 async fn get_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
     info!("Serving widget configuration page for: {}", widget_name.as_str());
-    
-    // Replace {{WIDGET_NAME}} placeholder with actual widget name
     let html = frontend::WIDGET_CONFIG_HTML.replace("{{WIDGET_NAME}}", widget_name.as_str());
-    
-    // Return custom HTML response that owns the string (no leak needed)
     HtmlResponse(html)
 }
 
@@ -419,7 +347,7 @@ pub async fn web_task(
     config: &'static picoserve::Config,
 ) -> ! {
     let port = 80;
-    // Use vec![] to allocate directly on heap (PSRAM), avoiding stack temporaries
+    // Useing vec![] to avoid stack temporaries
     let mut tcp_rx_buffer = alloc::vec![0u8; TCP_BUFFER_SIZE].into_boxed_slice();
     let mut tcp_tx_buffer = alloc::vec![0u8; TCP_BUFFER_SIZE].into_boxed_slice();
     let mut http_buffer = alloc::vec![0u8; HTTP_BUFFER_SIZE].into_boxed_slice();

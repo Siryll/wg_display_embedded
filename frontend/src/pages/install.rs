@@ -62,8 +62,7 @@ async fn install_widget(
                 navigator.push(&crate::Route::Home);
             }
             _ => {
-                let response_text = response.text().await;
-                let error_text = response_text.unwrap_or("No error message".to_string());
+                let error_text = response.text().await.unwrap_or("Failed to install widget".to_string());
                 error.set(Some(error_text));
                 log!("Failed to install widget");
             }
@@ -185,8 +184,7 @@ pub fn install() -> Html {
                                 load_store_items(widget_store_items, error).await;
                             }
                             _ => {
-                                let response_text = response.text().await;
-                                let error_text = response_text.unwrap_or("No error message".to_string());
+                                let error_text = response.text().await.unwrap_or("Failed to deinstall widget".to_string());
                                 error.set(Some(error_text));
                                 log!("Failed to deinstall widget");
                             }
