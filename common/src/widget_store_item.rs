@@ -18,7 +18,7 @@ impl WidgetStoreItem {
     }
 
     pub fn get_download_url(&self) -> String {
-        const SUFFIX: &str = "releases/latest/download/widget.wasm";
+        const SUFFIX: &str = "releases/latest/download/widget.precompiled.wasm";
         if self.repository.ends_with('/') {
             return format!("{}{}", self.repository, SUFFIX);
         }
