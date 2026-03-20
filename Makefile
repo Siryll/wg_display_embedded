@@ -30,7 +30,7 @@ app-build: frontend
 build: frontend app-build
 
 # Flash to ESP32
-run: frontend
+run:
 	@echo "Flashing to ESP32..."
 	cd embedded_app && cargo run --release
 

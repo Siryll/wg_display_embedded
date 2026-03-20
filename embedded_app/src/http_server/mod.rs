@@ -223,7 +223,7 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> HandlerResult<(
         .map_err(|e| Error::new(format!("Failed to deinstall widget: {:?}", e)))
 }
 
-async fn get_config_schema(widget_name: alloc::string::String) -> HandlerResult<Json<serde_json::Value>> {
+async fn get_config_schema(widget_name: alloc::string::String) -> HandlerResult<JsonStringResponse> {
     let mut runtime = Runtime::new();
     let widget_binary = match globals::with_storage(|storage| storage.wasm_read(&widget_name)).await {
         Ok(binary) => binary,
@@ -263,10 +263,10 @@ async fn get_config_schema(widget_name: alloc::string::String) -> HandlerResult<
         }
     };
 
-    let config_value = serde_json::from_str::<serde_json::Value>(&config)
+    serde_json::from_str::<serde_json::Value>(&config)
         .map_err(|_| Error::new("Widget config schema is not valid JSON"))?;
 
-    Ok(Json(config_value))
+    Ok(JsonStringResponse(config))
 }
 
 async fn post_widget_config(
