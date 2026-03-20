@@ -7,6 +7,7 @@ use picoserve::{
     AppBuilder, AppRouter, Router,
     response::{File, IntoResponse, Json},
     routing::{self, parse_path_segment},
+    extract::JsonWithUnescapeBufferSize,
 };
 use alloc::format;
 
@@ -211,7 +212,9 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult
     Ok(())
 }
 
-async fn post_system_config(Json(config): Json<SystemConfiguration>) -> HandlerResult<()> {
+async fn post_system_config(
+    JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<SystemConfiguration, 512>,
+) -> HandlerResult<()> {
     globals::with_storage(|storage| storage.save_widget_config(&config))
         .await
         .map_err(|e| Error::new(format!("Failed to save system config: {:?}", e)))
