@@ -29,6 +29,14 @@ app-build: frontend
 # Complete build process
 build: frontend app-build
 
+build-all: install-deps build
+
+install-deps:
+	@echo "Installing cargo dependencies..."
+	cargo install --locked trunk
+	@echo "Installing tailwindcss dependencies..."
+	cd frontend && npm install && rustup target add wasm32-unknown-unknown
+
 # Flash to ESP32
 run:
 	@echo "Flashing to ESP32..."
