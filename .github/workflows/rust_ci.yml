@@ -21,6 +21,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: Install cargo dependencies
+            run: cargo install --locked trunk
+          - name: Install tailwindcss
+            run: cd frontend && npm install
           - name: build
             command: make build
           - name: embedded_app fmt
