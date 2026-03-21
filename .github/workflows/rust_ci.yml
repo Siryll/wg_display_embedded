@@ -17,26 +17,55 @@ jobs:
   rust-checks:
     name: Rust Checks
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        action:
-          - command: build
-            args: --release
-          - command: fmt
-            args: --all -- --check
-          - command: clippy
-            args: --all-features --workspace -- -D warnings
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Setup stable Rust (fmt/clippy + wasm)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
       - name: Setup Rust
         uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
           buildtargets: esp32s3
           ldproxy: false
+
+      - name: Restore stable as default toolchain
+        run: rustup default stable
+
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
-      - name: Run command
-        run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+        with:
+          workspaces: |
+            embedded_app
+            common
+            frontend
+
+      - name: Setup frontend build dependencies
+        run: |
+          cargo +stable install --locked trunk
+          rustup target add wasm32-unknown-unknown --toolchain stable
+          cd frontend
+          npm ci
+
+      - name: Build frontend assets once
+        run: make frontend
+
+      - name: Rust fmt checks
+        run: |
+          cd embedded_app && cargo fmt --all -- --check
+          cd ../common && cargo fmt --all -- --check
+          cd ../frontend && cargo fmt --all -- --check
+
+      - name: Rust clippy checks
+        run: |
+          cd common && cargo clippy --all-features --workspace -- -D warnings
+          cd ../frontend && cargo clippy --all-features --workspace -- -D warnings
+          cd ../embedded_app && cargo clippy --all-features --workspace -- -D warnings
+
+      - name: Build release
+        run: cd embedded_app && cargo build --release
