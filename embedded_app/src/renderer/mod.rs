@@ -47,14 +47,14 @@ impl Renderer {
         }
     }
 
-    fn update_widget_information(config: &SystemConfiguration) -> Vec<WasmWidget> {
-        config.widgets.iter().map(|wc| WasmWidget {
+    fn update_widget_information(&mut self, config: &SystemConfiguration) {
+        self.widgets = config.widgets.iter().map(|wc| WasmWidget {
             name: wc.name.clone(),
             config_json: wc.json_config.clone(),
             update_cycle_seconds: if wc.update_cycle_seconds > 0 { wc.update_cycle_seconds } else { 1 },
             last_run: None,
             last_output: "-".to_string(),
-        }).collect()
+        }).collect();
     }
 
     pub async fn run(&mut self) {
@@ -71,7 +71,7 @@ impl Renderer {
         })
         .await;
 
-        self.widgets = Self::update_widget_information(&config);
+        self.update_widget_information(&config);
         info!("Renderer initialized {} widgets", self.widgets.len());
         self.render_layout().await;
 
@@ -81,7 +81,7 @@ impl Renderer {
                 globals::with_storage(|storage| storage.get_system_config_change()).await
             {
                 config = new_config;
-                self.widgets = Self::update_widget_information(&config);
+                self.update_widget_information(&config);
                 info!("Renderer reloaded {} widgets", self.widgets.len());
             }
 
