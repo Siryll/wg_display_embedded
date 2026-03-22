@@ -93,6 +93,7 @@ picoserve = { version = "0.18.0", features = ["embassy", "defmt", "json"] }
 serde-json-core = "0.6.0"
 serde_json = {version = "1.0.149", default-features = false, features = ["alloc"] }
 nb = "1.1.0"
+embedded-hal = "1.0.0"
 
 [profile.dev]
 # Rust debug is too slow.

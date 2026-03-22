@@ -36,6 +36,8 @@ mod runtime;
 mod storage;
 use crate::storage::Storage;
 
+mod renderer;
+
 mod http_client;
 
 mod http_server;
@@ -121,6 +123,7 @@ async fn main(spawner: Spawner) -> ! {
         peripherals.GPIO47,
         peripherals.GPIO48,
     );
+
     Text::new(
         "Hello ESP32!",
         Point::new(100, 60),
@@ -128,6 +131,8 @@ async fn main(spawner: Spawner) -> ! {
     )
     .draw(display.display_mut())
     .unwrap();
+
+    globals::init_display(display).await;
 
     // -- Wifi setup --
     let ssid = globals::with_storage(|storage| storage.config_get("ssid").unwrap()).await;
@@ -142,19 +147,19 @@ async fn main(spawner: Spawner) -> ! {
     globals::init_network(wifi.stack(), wifi.tls_seed());
 
     // Test HTTPS client first
-    info!("Testing direct HTTPS request...");
-    let http_client = globals::http_client();
-    let response = http_client
-        .get("https://jsonplaceholder.typicode.com/todos/1")
-        .await
-        .expect("Failed to make GET request");
-    match core::str::from_utf8(&response) {
-        Ok(s) => info!("Direct HTTPS Response: {}", s),
-        Err(_) => info!(
-            "Direct HTTPS Response: [binary data, {} bytes]",
-            response.len()
-        ),
-    }
+    // info!("Testing direct HTTPS request...");
+    // let http_client = globals::http_client();
+    // let response = http_client
+    //     .get("https://jsonplaceholder.typicode.com/todos/1")
+    //     .await
+    //     .expect("Failed to make GET request");
+    // match core::str::from_utf8(&response) {
+    //     Ok(s) => info!("Direct HTTPS Response: {}", s),
+    //     Err(_) => info!(
+    //         "Direct HTTPS Response: [binary data, {} bytes]",
+    //         response.len()
+    //     ),
+    // }
 
     // -- Spawn HTTP handler task for widget runtime --
     spawner
@@ -202,26 +207,7 @@ async fn main(spawner: Spawner) -> ! {
 async fn widget_runner() {
     info!("Widget runner task started");
 
-    // Initialize Wasmtime runtime
-    info!("Initializing Wasmtime runtime");
-    let mut runtime = runtime::Runtime::new();
-    unsafe {
-        let component = runtime
-            .load_module(include_bytes!("runtime/test_widget_new.compiled"))
-            .expect("Failed to load WASM module");
-        let widget = runtime
-            .instantiate(&component)
-            .expect("Failed to instantiate component");
-        let name = runtime
-            .get_widget_name(&widget)
-            .expect("Failed to get widget name");
-        info!("Widget name: {}", name.as_str());
-        let config = runtime
-            .get_config_schema(&widget)
-            .expect("Failed to get config schema");
-
-        info!("Starting widget execution...");
-        runtime.run(&widget, config).expect("Failed to run widget");
-        info!("Widget execution completed");
-    }
+    let mut renderer = renderer::Renderer::new();
+    // will loop forever
+    renderer.run().await;
 }
