@@ -159,6 +159,7 @@ impl Runtime {
             }
         };
 
+        // TODO: fix time handling
         self.last_run.insert(
             name,
             Datetime {
@@ -181,5 +182,9 @@ impl Runtime {
 
     pub fn get_widget_version(&mut self, widget: &Widget) -> wasmtime::Result<String> {
         widget.call_get_version(&mut self.store)
+    }
+
+    pub fn get_run_update_cycle_seconds(&mut self, widget: &Widget) -> wasmtime::Result<u32> {
+        widget.call_get_run_update_cycle_seconds(&mut self.store)
     }
 }

@@ -69,6 +69,9 @@ impl WidgetManager {
         let json_config = runtime
             .get_config_schema(&widget)
             .expect("Failed to get widget config schema");
+        let update_cycle_seconds = runtime
+            .get_run_update_cycle_seconds(&widget)
+            .expect("Failed to get widget update cycle seconds");
         // let widget_name = "example_widget";
         // let version = "0.1.0";
         // let json_config = "{}";
@@ -80,6 +83,7 @@ impl WidgetManager {
                 description,
                 version.as_str(),
                 json_config.as_str(),
+                update_cycle_seconds,
                 &response.bytes,
             )
         })

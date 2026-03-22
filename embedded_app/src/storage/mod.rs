@@ -11,6 +11,7 @@ use esp_storage::{FlashStorage, FlashStorageError};
 pub struct Storage<'d> {
     nvs: Nvs<FlashStorage<'d>>,
     hasher: Hasher<'d>,
+    config_updated: bool,
 }
 
 #[derive(Debug, defmt::Format)]
@@ -91,6 +92,7 @@ impl<'d> Storage<'d> {
         Ok(Self {
             nvs,
             hasher: Hasher::new(sha_peripherals),
+            config_updated: false,
         })
     }
 
@@ -101,6 +103,7 @@ impl<'d> Storage<'d> {
         let value = serde_json::to_string(system_config)
             .map_err(|_| StorageError::Nvs(NvsError::FlashError))?;
         self.config_set("system_config", &value)?;
+        self.config_updated = true;
         Ok(())
     }
 
@@ -111,12 +114,28 @@ impl<'d> Storage<'d> {
         Ok(config)
     }
 
+    pub fn get_system_config_change(&mut self) -> Option<SystemConfiguration> {
+        if self.config_updated {
+            self.config_updated = false;
+            match self.get_widget_config() {
+                Ok(config) => Some(config),
+                Err(err) => {
+                    info!("Error getting updated config: {:?}", err);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn save_compiled_widget(
         &mut self,
         name: &str,
         description: &str,
         version: &str,
         json_config: &str,
+        update_cycle_seconds: u32,
         data: &[u8],
     ) -> Result<(), StorageError> {
         self.wasm_write(name, data)?;
@@ -126,8 +145,10 @@ impl<'d> Storage<'d> {
             description: description.to_string(),
             version: version.to_string(),
             json_config: json_config.to_string(),
+            update_cycle_seconds,
         });
         self.save_widget_config(&config)?;
+        self.config_updated = true;
         Ok(())
     }
 
