@@ -1,7 +1,7 @@
-use esp_hal::time::Instant;
-use serde::Deserialize;
 use crate::runtime::http_sync;
 use crate::runtime::http_sync::BridgeMethod;
+use esp_hal::time::Instant;
+use serde::Deserialize;
 
 #[derive(Clone, Debug)]
 pub struct EspTime {

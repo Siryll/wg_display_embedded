@@ -67,9 +67,9 @@ impl WidgetManager {
         let version = runtime
             .get_widget_version(&widget)
             .map_err(|_| WidgetManagerError::WasmError("Failed to get widget version"))?;
-        let update_cycle_seconds = runtime
-            .get_run_update_cycle_seconds(&widget)
-            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget update cycle seconds"))?;
+        let update_cycle_seconds = runtime.get_run_update_cycle_seconds(&widget).map_err(|_| {
+            WidgetManagerError::WasmError("Failed to get widget update cycle seconds")
+        })?;
         // let widget_name = "example_widget";
         // let version = "0.1.0";
         let json_config = "{}";
