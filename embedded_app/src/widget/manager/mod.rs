@@ -10,6 +10,7 @@ use crate::util::globals;
 pub enum WidgetManagerError {
     Storage(StorageError),
     HttpError(&'static str),
+    WasmError(&'static str),
 }
 
 impl From<StorageError> for WidgetManagerError {
@@ -55,20 +56,20 @@ impl WidgetManager {
 
         // TODO: runtime now ready, now needs repo widget template for embedded version
         let mut runtime = Runtime::new();
-        let module =
-            unsafe { runtime.load_module(&response.bytes) }.expect("Failed to load WASM module");
+        let module = unsafe { runtime.load_module(&response.bytes) }
+            .map_err(|_| WidgetManagerError::WasmError("Failed to load WASM module"))?;
         let widget = runtime
             .instantiate(&module)
-            .expect("Failed to instantiate component");
+            .map_err(|_| WidgetManagerError::WasmError("Failed to instantiate component"))?;
         let widget_name = runtime
             .get_widget_name(&widget)
-            .expect("Failed to get widget name");
+            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget name"))?;
         let version = runtime
             .get_widget_version(&widget)
-            .expect("Failed to get widget version");
+            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget version"))?;
         let update_cycle_seconds = runtime
             .get_run_update_cycle_seconds(&widget)
-            .expect("Failed to get widget update cycle seconds");
+            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget update cycle seconds"))?;
         // let widget_name = "example_widget";
         // let version = "0.1.0";
         let json_config = "{}";
@@ -115,15 +116,13 @@ impl WidgetManager {
     // Will be used by the rendere for gettin all widgets to display them in the UI
     // TODO: maybe use to check if system config is allinged with actual stored binaries
     #[allow(dead_code)]
-    pub async fn get_widgets() -> Vec<String> {
-        let mut widget_names = Vec::new();
-        globals::with_storage(|storage| {
-            for widget in storage.get_widget_config().unwrap().widgets {
-                widget_names.push(widget.name);
-            }
+    pub async fn get_widgets() -> Result<Vec<String>, WidgetManagerError> {
+        let widget_names = globals::with_storage(|storage| {
+            storage
+                .get_widget_config()
+                .map(|config| config.widgets.into_iter().map(|w| w.name).collect())
         })
-        .await;
-
-        widget_names
+        .await?;
+        Ok(widget_names)
     }
 }

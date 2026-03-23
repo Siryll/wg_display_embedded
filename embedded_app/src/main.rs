@@ -201,7 +201,7 @@ async fn main(spawner: Spawner) -> ! {
     let _ = spawner;
 
     loop {
-        info!("Hello world!");
+        // info!("Hello world!");
         Timer::after(Duration::from_secs(10)).await;
     }
 

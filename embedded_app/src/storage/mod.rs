@@ -148,7 +148,6 @@ impl<'d> Storage<'d> {
             update_cycle_seconds,
         });
         self.save_widget_config(&config)?;
-        self.config_updated = true;
         Ok(())
     }
 
