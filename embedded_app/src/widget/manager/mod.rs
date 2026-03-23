@@ -66,12 +66,12 @@ impl WidgetManager {
         let version = runtime
             .get_widget_version(&widget)
             .expect("Failed to get widget version");
-        let json_config = runtime
-            .get_config_schema(&widget)
-            .expect("Failed to get widget config schema");
+        let update_cycle_seconds = runtime
+            .get_run_update_cycle_seconds(&widget)
+            .expect("Failed to get widget update cycle seconds");
         // let widget_name = "example_widget";
         // let version = "0.1.0";
-        // let json_config = "{}";
+        let json_config = "{}";
 
         // simplify storage by just having one call that handles everything
         globals::with_storage(|storage| {
@@ -79,7 +79,8 @@ impl WidgetManager {
                 widget_name.as_str(),
                 description,
                 version.as_str(),
-                json_config.as_str(),
+                json_config,
+                update_cycle_seconds,
                 &response.bytes,
             )
         })

@@ -21,6 +21,7 @@ impl EspHttpClient {
         Self { stack, tls_seed }
     }
 
+    #[allow(dead_code)]
     pub async fn get(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.request(reqwless::request::Method::GET, url, None)
             .await
@@ -62,7 +63,7 @@ impl EspHttpClient {
 
         let mut rx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
         let mut tx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
-        let mut response_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
+        let mut response_buffer = alloc::vec![0u8; 524288].into_boxed_slice();
 
         info!("Creating TLS config for HTTP client...");
         let tls = TlsConfig::new(

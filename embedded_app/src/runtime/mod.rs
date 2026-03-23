@@ -139,7 +139,7 @@ impl Runtime {
         widget: &Widget,
         config: String,
     ) -> wasmtime::Result<Option<WidgetResult>> {
-        defmt::debug!("Running widget");
+        defmt::info!("Running widget with config: {}", config.as_str());
         let name = self.get_widget_name(widget)?;
         let last_invocation = *self.last_run.get(name.as_str()).unwrap_or(&Datetime {
             seconds: 0,
@@ -159,6 +159,7 @@ impl Runtime {
             }
         };
 
+        // TODO: fix time handling
         self.last_run.insert(
             name,
             Datetime {
@@ -181,5 +182,9 @@ impl Runtime {
 
     pub fn get_widget_version(&mut self, widget: &Widget) -> wasmtime::Result<String> {
         widget.call_get_version(&mut self.store)
+    }
+
+    pub fn get_run_update_cycle_seconds(&mut self, widget: &Widget) -> wasmtime::Result<u32> {
+        widget.call_get_run_update_cycle_seconds(&mut self.store)
     }
 }
