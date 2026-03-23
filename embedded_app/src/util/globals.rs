@@ -1,7 +1,10 @@
 use crate::display::Display;
 use crate::http_client::EspHttpClient;
 use crate::storage::Storage;
+use crate::util::esptime::EspTime;
+use core::cell::RefCell;
 use core::sync::atomic::{AtomicBool, Ordering};
+use critical_section::Mutex as CsMutex;
 use defmt::info;
 use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -15,6 +18,7 @@ static DISPLAY: GlobalMutex<Display> = Mutex::new(None);
 static mut NETWORK_STACK: Option<Stack<'static>> = None;
 
 static mut TLS_SEED: Option<u64> = None;
+static ESP_TIME: CsMutex<RefCell<Option<EspTime>>> = CsMutex::new(RefCell::new(None));
 
 static NETWORK_READY: AtomicBool = AtomicBool::new(false);
 
@@ -77,4 +81,32 @@ pub fn tls_seed() -> u64 {
 
 pub fn http_client() -> EspHttpClient {
     EspHttpClient::new(network_stack(), tls_seed())
+}
+
+pub fn init_time(time: EspTime) {
+    critical_section::with(|cs| {
+        let mut guard = ESP_TIME.borrow_ref_mut(cs);
+        if guard.is_some() {
+            panic!("Time already initialized! Call init_time() only once");
+        }
+        *guard = Some(time);
+    });
+    info!("Global time initialized");
+}
+
+pub fn with_time<F, R>(f: F) -> R
+where
+    F: FnOnce(&EspTime) -> R,
+{
+    critical_section::with(|cs| {
+        let guard = ESP_TIME.borrow_ref(cs);
+        let time = guard
+            .as_ref()
+            .expect("Time not initialized! Call init_time() first");
+        f(time)
+    })
+}
+
+pub fn now_parts() -> Option<(u64, u32)> {
+    with_time(EspTime::now_parts)
 }

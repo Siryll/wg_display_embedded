@@ -63,8 +63,14 @@ pub fn home() -> Html {
                     .send()
                     .await;
                 match res {
-                    Ok(_) => {
+                    Ok(response) if response.status() == 200 => {
                         log!("Successfully deinstalled widget");
+                        if let Some(window) = web_sys::window() {
+                            let _ = window.location().reload();
+                        }
+                    }
+                    Ok(_) => {
+                        error.set(Some("Failed to deinstall widget".to_string()));
                     }
                     Err(_) => {
                         error.set(Some("Failed to deinstall widget".to_string()));
