@@ -27,21 +27,33 @@
                 $('form').jsonForm({
                     schema: schema,
                     validate: false,
-                    onSubmit: function (errors, values) {
+                    onSubmit: async function (errors, values) {
                         if (errors) {
                             $('#res').html('<pre>' + JSON.stringify(errors) + '</pre>')
                         } else {
                             const payload = {
                                 config: JSON.stringify(values)
                             }
-                            fetch('/widget_config/' + encodeURI(widgetName), {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify(payload)
-                            })
-                            window.location.href = '/'
+                            try {
+                                const response = await fetch('/widget_config/' + encodeURIComponent(widgetName), {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(payload)
+                                })
+
+                                if (!response.ok) {
+                                    const errorText = await response.text()
+                                    throw new Error(errorText || ('HTTP ' + response.status))
+                                }
+
+                                window.location.href = '/'
+                            } catch (error) {
+                                $('#res')
+                                    .addClass('alert-danger')
+                                    .html('<pre>Failed to save config: ' + error + '</pre>')
+                            }
                         }
                     }
                 })
