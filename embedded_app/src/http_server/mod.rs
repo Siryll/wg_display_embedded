@@ -218,8 +218,12 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult
 }
 
 async fn post_system_config(
-    JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<SystemConfiguration, 512>,
+    JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<SystemConfiguration, HTTP_BUFFER_SIZE>,
 ) -> HandlerResult<()> {
+    info!(
+        "Received new system config: {:?}",
+        defmt::Debug2Format(&config)
+    );
     globals::with_storage(|storage| storage.save_widget_config(&config))
         .await
         .map_err(|e| Error::new(format!("Failed to save system config: {:?}", e)))
@@ -282,7 +286,7 @@ async fn get_config_schema(
 
 async fn post_widget_config(
     widget_name: alloc::string::String,
-    Json(config): Json<ConfigWrapper>,
+    JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<ConfigWrapper, HTTP_BUFFER_SIZE>,
 ) -> HandlerResult<()> {
     info!(
         "POST /widget_config/{} - received config",

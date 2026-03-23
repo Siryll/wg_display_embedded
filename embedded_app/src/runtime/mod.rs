@@ -139,7 +139,7 @@ impl Runtime {
         widget: &Widget,
         config: String,
     ) -> wasmtime::Result<Option<WidgetResult>> {
-        defmt::debug!("Running widget");
+        defmt::info!("Running widget with config: {}", config.as_str());
         let name = self.get_widget_name(widget)?;
         let last_invocation = *self.last_run.get(name.as_str()).unwrap_or(&Datetime {
             seconds: 0,
