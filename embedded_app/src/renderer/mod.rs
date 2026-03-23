@@ -1,12 +1,12 @@
+use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use alloc::boxed::Box;
 
 use common::models::SystemConfiguration;
 use defmt::{error, info, warn};
 use embassy_time::{Duration, Instant, Timer};
-use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::Drawable;
+use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::mono_font::ascii::FONT_8X13;
 use embedded_graphics::pixelcolor::Rgb565;
@@ -51,26 +51,33 @@ impl Renderer {
 
     fn update_widget_information(&mut self, config: &SystemConfiguration) {
         self.background_color = parse_background_color(config.background_color.as_str());
-        self.widgets = config.widgets.iter().map(|wc| WasmWidget {
-            name: wc.name.clone(),
-            config_json: wc.json_config.clone(),
-            update_cycle_seconds: if wc.update_cycle_seconds > 0 { wc.update_cycle_seconds } else { 1 },
-            last_run: None,
-            last_output: "-".to_string(),
-        }).collect();
+        self.widgets = config
+            .widgets
+            .iter()
+            .map(|wc| WasmWidget {
+                name: wc.name.clone(),
+                config_json: wc.json_config.clone(),
+                update_cycle_seconds: if wc.update_cycle_seconds > 0 {
+                    wc.update_cycle_seconds
+                } else {
+                    1
+                },
+                last_run: None,
+                last_output: "-".to_string(),
+            })
+            .collect();
     }
 
     pub async fn run(&mut self) {
         let mut config = globals::with_storage(|storage| {
             let config = storage.get_widget_config();
-            let config = match config {
+            match config {
                 Ok(config) => config,
                 Err(err) => {
                     error!("Failed to get widget config: {:?}", err);
                     SystemConfiguration::default()
                 }
-            };
-            config
+            }
         })
         .await;
 
@@ -100,7 +107,10 @@ impl Renderer {
         for widget in &mut self.widgets {
             let should_run = match widget.last_run {
                 None => true,
-                Some(last) => now.duration_since(last) >= Duration::from_secs(u64::from(widget.update_cycle_seconds)),
+                Some(last) => {
+                    now.duration_since(last)
+                        >= Duration::from_secs(u64::from(widget.update_cycle_seconds))
+                }
             };
             if !should_run {
                 continue;
@@ -108,21 +118,30 @@ impl Renderer {
 
             widget.last_run = Some(now);
 
-            let wasm_bytes = match globals::with_storage(|s| s.wasm_read(widget.name.as_str())).await {
-                Ok(bytes) => bytes,
-                Err(err) => {
-                    widget.last_output = "Widget binary missing".to_string();
-                    warn!("Could not read widget '{}': {:?}", widget.name.as_str(), err);
-                    continue;
-                }
-            };
+            let wasm_bytes =
+                match globals::with_storage(|s| s.wasm_read(widget.name.as_str())).await {
+                    Ok(bytes) => bytes,
+                    Err(err) => {
+                        widget.last_output = "Widget binary missing".to_string();
+                        warn!(
+                            "Could not read widget '{}': {:?}",
+                            widget.name.as_str(),
+                            err
+                        );
+                        continue;
+                    }
+                };
 
             let mut runtime = Runtime::new();
             let component = match unsafe { runtime.load_module(&wasm_bytes) } {
                 Ok(c) => c,
                 Err(err) => {
                     widget.last_output = "Widget component invalid".to_string();
-                    error!("Could not deserialize widget '{}': {:?}", widget.name.as_str(), defmt::Debug2Format(&err));
+                    error!(
+                        "Could not deserialize widget '{}': {:?}",
+                        widget.name.as_str(),
+                        defmt::Debug2Format(&err)
+                    );
                     continue;
                 }
             };
@@ -131,7 +150,11 @@ impl Renderer {
                 Ok(i) => i,
                 Err(err) => {
                     widget.last_output = "Widget instantiate failed".to_string();
-                    error!("Could not instantiate widget '{}': {:?}", widget.name.as_str(), defmt::Debug2Format(&err));
+                    error!(
+                        "Could not instantiate widget '{}': {:?}",
+                        widget.name.as_str(),
+                        defmt::Debug2Format(&err)
+                    );
                     continue;
                 }
             };
@@ -140,7 +163,11 @@ impl Renderer {
                 Ok(Some(result)) => result.data,
                 Ok(None) => "No output".to_string(),
                 Err(err) => {
-                    error!("Widget '{}' execution failed: {:?}", widget.name.as_str(), defmt::Debug2Format(&err));
+                    error!(
+                        "Widget '{}' execution failed: {:?}",
+                        widget.name.as_str(),
+                        defmt::Debug2Format(&err)
+                    );
                     "Widget execution failed".to_string()
                 }
             };
@@ -148,8 +175,11 @@ impl Renderer {
     }
 
     async fn render_layout(&mut self) {
-        let mut framebuffer =
-            FrameBuf::new(self.framebuffer.as_mut(), DISPLAY_WIDTH as usize, DISPLAY_HEIGHT as usize);
+        let mut framebuffer = FrameBuf::new(
+            self.framebuffer.as_mut(),
+            DISPLAY_WIDTH as usize,
+            DISPLAY_HEIGHT as usize,
+        );
 
         let _ = framebuffer.clear(self.background_color);
 
@@ -172,22 +202,27 @@ impl Renderer {
             if y >= DISPLAY_HEIGHT as i32 {
                 break;
             }
-            let output = widget.last_output.lines().next().unwrap_or("-");
-            draw_text(&mut framebuffer, output, y, &yellow);
-            y += LINE_HEIGHT;
+            for line in widget.last_output.lines() {
+                draw_text(&mut framebuffer, line, y, &yellow);
+                y += LINE_HEIGHT;
+                if y >= DISPLAY_HEIGHT as i32 {
+                    break;
+                }
+            }
         }
 
         let pixel_iter = self.framebuffer.iter().copied();
         globals::with_display(|display| {
             let _ = display.display_mut().set_pixels(
-                0, 0,
+                0,
+                0,
                 (DISPLAY_WIDTH - 1) as u16,
                 (DISPLAY_HEIGHT - 1) as u16,
                 pixel_iter,
             );
-        }).await;
+        })
+        .await;
     }
-
 }
 
 fn parse_background_color(color: &str) -> Rgb565 {
@@ -211,7 +246,10 @@ where
     T: DrawTarget<Color = Rgb565>,
 {
     let truncated = if text.len() > DISPLAY_WIDTH_CHARS {
-        let mut s = text.chars().take(DISPLAY_WIDTH_CHARS.saturating_sub(3)).collect::<String>();
+        let mut s = text
+            .chars()
+            .take(DISPLAY_WIDTH_CHARS.saturating_sub(3))
+            .collect::<String>();
         s.push_str("...");
         s
     } else {

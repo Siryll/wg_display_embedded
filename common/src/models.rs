@@ -17,7 +17,7 @@ pub struct WidgetInstallationData {
     pub description: String,
     pub version: String,
     pub json_config: String,
-    pub update_cycle_seconds: u32
+    pub update_cycle_seconds: u32,
 }
 #[derive(Deserialize, Serialize, Clone, PartialEq, Default, Debug)]
 pub struct SystemConfiguration {

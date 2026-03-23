@@ -21,6 +21,7 @@ impl EspHttpClient {
         Self { stack, tls_seed }
     }
 
+    #[allow(dead_code)]
     pub async fn get(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.request(reqwless::request::Method::GET, url, None)
             .await

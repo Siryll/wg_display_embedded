@@ -218,7 +218,10 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult
 }
 
 async fn post_system_config(
-    JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<SystemConfiguration, HTTP_BUFFER_SIZE>,
+    JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<
+        SystemConfiguration,
+        HTTP_BUFFER_SIZE,
+    >,
 ) -> HandlerResult<()> {
     info!(
         "Received new system config: {:?}",

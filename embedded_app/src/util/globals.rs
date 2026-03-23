@@ -1,5 +1,5 @@
-use crate::http_client::EspHttpClient;
 use crate::display::Display;
+use crate::http_client::EspHttpClient;
 use crate::storage::Storage;
 use core::sync::atomic::{AtomicBool, Ordering};
 use defmt::info;
