@@ -119,7 +119,7 @@ impl WidgetManager {
     pub async fn get_widgets() -> Result<Vec<String>, WidgetManagerError> {
         let widget_names = globals::with_storage(|storage| {
             storage
-                .get_widget_config()
+                .get_system_config()
                 .map(|config| config.widgets.into_iter().map(|w| w.name).collect())
         })
         .await?;

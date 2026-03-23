@@ -178,12 +178,12 @@ async fn get_store_items() -> HandlerResult<JsonStringResponse> {
 }
 
 async fn get_system_config() -> HandlerResult<Json<SystemConfiguration>> {
-    match globals::with_storage(|storage| storage.get_widget_config()).await {
+    match globals::with_storage(|storage| storage.get_system_config()).await {
         Ok(config) => Ok(Json(config)),
         Err(_) => {
             // try to create default config
             let default_config = SystemConfiguration::default();
-            globals::with_storage(|storage| storage.save_widget_config(&default_config))
+            globals::with_storage(|storage| storage.save_system_config(&default_config))
                 .await
                 .map_err(|e| {
                     Error::new(format!("Failed to save default system config: {:?}", e))
@@ -227,7 +227,7 @@ async fn post_system_config(
         "Received new system config: {:?}",
         defmt::Debug2Format(&config)
     );
-    globals::with_storage(|storage| storage.save_widget_config(&config))
+    globals::with_storage(|storage| storage.save_system_config(&config))
         .await
         .map_err(|e| Error::new(format!("Failed to save system config: {:?}", e)))
 }
@@ -298,7 +298,7 @@ async fn post_widget_config(
 
     let config_string = config.config;
 
-    let mut system_config = globals::with_storage(|storage| storage.get_widget_config())
+    let mut system_config = globals::with_storage(|storage| storage.get_system_config())
         .await
         .map_err(|e| Error::new(format!("Failed to get system config: {:?}", e)))?;
 
@@ -313,7 +313,7 @@ async fn post_widget_config(
         error!("Widget not found: {}", widget_name.as_str());
     }
 
-    globals::with_storage(|storage| storage.save_widget_config(&system_config))
+    globals::with_storage(|storage| storage.save_system_config(&system_config))
         .await
         .map_err(|e| Error::new(format!("Failed to save widget config: {:?}", e)))
 }
