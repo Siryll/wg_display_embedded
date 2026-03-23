@@ -101,11 +101,11 @@ impl<'d> Storage<'d> {
         system_config: &SystemConfiguration,
     ) -> Result<(), StorageError> {
         // only save if config changed to avoid flash wear
-        if let Ok(current_config) = self.get_system_config() {
-            if current_config == *system_config {
-                info!("System config unchanged, not saving to flash");
-                return Ok(());
-            }
+        if let Ok(current_config) = self.get_system_config()
+            && current_config == *system_config
+        {
+            info!("System config unchanged, not saving to flash");
+            return Ok(());
         }
 
         let value = serde_json::to_string(system_config)
