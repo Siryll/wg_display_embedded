@@ -96,10 +96,18 @@ impl<'d> Storage<'d> {
         })
     }
 
-    pub fn save_widget_config(
+    pub fn save_system_config(
         &mut self,
         system_config: &SystemConfiguration,
     ) -> Result<(), StorageError> {
+        // only save if config changed to avoid flash wear
+        if let Ok(current_config) = self.get_system_config()
+            && current_config == *system_config
+        {
+            info!("System config unchanged, not saving to flash");
+            return Ok(());
+        }
+
         let value = serde_json::to_string(system_config)
             .map_err(|_| StorageError::Nvs(NvsError::FlashError))?;
         self.config_set("system_config", &value)?;
@@ -107,7 +115,7 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
-    pub fn get_widget_config(&mut self) -> Result<SystemConfiguration, StorageError> {
+    pub fn get_system_config(&mut self) -> Result<SystemConfiguration, StorageError> {
         let value: alloc::string::String = self.config_get("system_config")?;
         let config: SystemConfiguration =
             serde_json::from_str(&value).map_err(|_| StorageError::Nvs(NvsError::FlashError))?;
@@ -117,7 +125,7 @@ impl<'d> Storage<'d> {
     pub fn get_system_config_change(&mut self) -> Option<SystemConfiguration> {
         if self.config_updated {
             self.config_updated = false;
-            match self.get_widget_config() {
+            match self.get_system_config() {
                 Ok(config) => Some(config),
                 Err(err) => {
                     info!("Error getting updated config: {:?}", err);
@@ -139,7 +147,7 @@ impl<'d> Storage<'d> {
         data: &[u8],
     ) -> Result<(), StorageError> {
         self.wasm_write(name, data)?;
-        let mut config = self.get_widget_config()?;
+        let mut config = self.get_system_config()?;
         config.widgets.push(WidgetInstallationData {
             name: name.to_string(),
             description: description.to_string(),
@@ -147,17 +155,16 @@ impl<'d> Storage<'d> {
             json_config: json_config.to_string(),
             update_cycle_seconds,
         });
-        self.save_widget_config(&config)?;
-        self.config_updated = true;
+        self.save_system_config(&config)?;
         Ok(())
     }
 
     pub fn deinstall_widget(&mut self, name: &str) -> Result<(), StorageError> {
         // self.wasm_read(name)?; // check if widget exists
         self.wasm_delete(name)?; // remove widget data
-        let mut config = self.get_widget_config()?;
+        let mut config = self.get_system_config()?;
         config.widgets.retain(|w| w.name != name);
-        self.save_widget_config(&config)?;
+        self.save_system_config(&config)?;
         Ok(())
     }
 
@@ -210,7 +217,7 @@ impl<'d> Storage<'d> {
 
     #[allow(dead_code)]
     pub fn list_widgets(&mut self) -> Result<alloc::vec::Vec<alloc::string::String>, StorageError> {
-        let config = self.get_widget_config()?;
+        let config = self.get_system_config()?;
         Ok(config.widgets.iter().map(|w| w.name.clone()).collect())
     }
 }

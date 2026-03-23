@@ -70,11 +70,11 @@ impl Renderer {
 
     pub async fn run(&mut self) {
         let mut config = globals::with_storage(|storage| {
-            let config = storage.get_widget_config();
+            let config = storage.get_system_config();
             match config {
                 Ok(config) => config,
                 Err(err) => {
-                    error!("Failed to get widget config: {:?}", err);
+                    error!("Failed to get system config: {:?}", err);
                     SystemConfiguration::default()
                 }
             }

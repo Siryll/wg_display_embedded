@@ -42,6 +42,7 @@ mod http_client;
 
 mod http_server;
 
+use crate::util::esptime::EspTime;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::{
@@ -167,6 +168,11 @@ async fn main(spawner: Spawner) -> ! {
         .expect("Failed to spawn HTTP handler task");
     info!("HTTP handler task spawned on core0 executor");
 
+    let mut esp_time = EspTime::new();
+    esp_time.fetch_time().await;
+    globals::init_time(esp_time);
+    info!("Global time synced from time API");
+
     // -- Init and start widget runner on second core --
     static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
     let app_core_stack = APP_CORE_STACK.init(CoreStack::new());
@@ -195,7 +201,7 @@ async fn main(spawner: Spawner) -> ! {
     let _ = spawner;
 
     loop {
-        info!("Hello world!");
+        // info!("Hello world!");
         Timer::after(Duration::from_secs(10)).await;
     }
 
