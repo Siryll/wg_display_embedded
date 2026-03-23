@@ -3,5 +3,10 @@
         "name": "Aareguru",
         "description": "Displays the current temperature of the Aare river",
         "repository": "https://github.com/Siryll/wg_display_embedded_widget_aareguru"
+    },
+    {
+        "name": "Public Transport",
+        "description": "Displays public transport information",
+        "repository": "https://github.com/Siryll/wg_display_embedded_widget_public_transport"
     }
 ]

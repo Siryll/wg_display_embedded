@@ -37,6 +37,7 @@ struct WasmWidget {
 pub struct Renderer {
     widgets: Vec<WasmWidget>,
     framebuffer: Box<[Rgb565; DISPLAY_PIXELS]>,
+    background_color: Rgb565,
 }
 
 impl Renderer {
@@ -44,10 +45,12 @@ impl Renderer {
         Self {
             widgets: Vec::new(),
             framebuffer: Box::new([Rgb565::BLACK; DISPLAY_PIXELS]),
+            background_color: Rgb565::BLACK,
         }
     }
 
     fn update_widget_information(&mut self, config: &SystemConfiguration) {
+        self.background_color = parse_background_color(config.background_color.as_str());
         self.widgets = config.widgets.iter().map(|wc| WasmWidget {
             name: wc.name.clone(),
             config_json: wc.json_config.clone(),
@@ -148,13 +151,14 @@ impl Renderer {
         let mut framebuffer =
             FrameBuf::new(self.framebuffer.as_mut(), DISPLAY_WIDTH as usize, DISPLAY_HEIGHT as usize);
 
-        let _ = framebuffer.clear(Rgb565::BLACK);
+        let _ = framebuffer.clear(self.background_color);
 
         let white = MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE);
         let cyan = MonoTextStyle::new(&FONT_8X13, Rgb565::CYAN);
         let yellow = MonoTextStyle::new(&FONT_8X13, Rgb565::YELLOW);
 
         let mut y = FIRST_LINE_Y;
+        // TODO add IP to title bar for easier configuration
         draw_text(&mut framebuffer, "Embedded App", y, &white);
         y += LINE_HEIGHT;
 
@@ -184,6 +188,22 @@ impl Renderer {
         }).await;
     }
 
+}
+
+fn parse_background_color(color: &str) -> Rgb565 {
+    let hex = color.strip_prefix('#').unwrap_or(color);
+    if hex.len() != 6 {
+        return Rgb565::BLACK;
+    }
+
+    let r = u8::from_str_radix(&hex[0..2], 16).ok();
+    let g = u8::from_str_radix(&hex[2..4], 16).ok();
+    let b = u8::from_str_radix(&hex[4..6], 16).ok();
+
+    match (r, g, b) {
+        (Some(r), Some(g), Some(b)) => Rgb565::new(r >> 3, g >> 2, b >> 3),
+        _ => Rgb565::BLACK,
+    }
 }
 
 fn draw_text<T>(target: &mut T, text: &str, y: i32, style: &MonoTextStyle<'_, Rgb565>)
