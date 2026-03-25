@@ -2,6 +2,8 @@
 debug/
 target/
 
+firmware.bin
+
 # Env file for wifi credentials (before config is implemented)
 .env
 
