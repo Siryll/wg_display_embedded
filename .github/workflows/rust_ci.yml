@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - '*'
     paths-ignore:
       - "**/README.md"
   pull_request:
@@ -20,23 +22,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
       - name: Setup stable Rust (fmt/clippy + wasm)
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
-
       - name: Setup Rust
         uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
           buildtargets: esp32s3
           ldproxy: false
-
       - name: Restore stable as default toolchain
         run: rustup default stable
-
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -44,28 +42,33 @@ jobs:
             embedded_app
             common
             frontend
-
+      - name: Install espflash
+        run: cargo install espflash --locked
       - name: Setup frontend build dependencies
         run: |
           cargo +stable install --locked trunk
           rustup target add wasm32-unknown-unknown --toolchain stable
           cd frontend
           npm ci
-
       - name: Build frontend assets once
         run: make frontend
-
       - name: Rust fmt checks
         run: |
           cd embedded_app && cargo fmt --all -- --check
           cd ../common && cargo fmt --all -- --check
           cd ../frontend && cargo fmt --all -- --check
-
       - name: Rust clippy checks
         run: |
           cd common && cargo clippy --all-features --workspace -- -D warnings
           cd ../frontend && cargo clippy --all-features --workspace -- -D warnings
           cd ../embedded_app && cargo clippy --all-features --workspace -- -D warnings
-
       - name: Build release
         run: cd embedded_app && cargo build --release
+      - name: Create binary
+        run:
+          espflash save-image --chip esp32s3 --flash-size 16mb --merge --partition-table embedded_app/partitions.csv embedded_app/target/xtensa-esp32s3-none-elf/release/embedded_wg_display firmware.bin
+      - uses: ncipollo/release-action@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          artifacts: "firmware.bin"
+          artifactErrorsFailBuild: true
