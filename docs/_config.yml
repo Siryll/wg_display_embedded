@@ -1,0 +1,6 @@
+theme: jekyll-theme-cayman
+title: WG Display — Web Installer
+description: >-
+  Flash the latest WG Display firmware to your ESP32-S3-Box-3 directly from
+  your browser — no drivers or toolchain required.
+show_downloads: false
