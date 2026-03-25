@@ -26,7 +26,7 @@ Flash the latest firmware directly from your browser — no drivers or toolchain
 
 ## Manual Install
 
-Download the latest `firmware.bin` from [GitHub Releases](https://github.com/Siryll/wg_display_embedded/releases/latest) and flash with:
+Download the latest `firmware.bin` from [GitHub Pages](https://siryll.github.io/wg_display_embedded_test/firmware.bin) and flash with:
 
 ```
 espflash flash --chip esp32s3 firmware.bin

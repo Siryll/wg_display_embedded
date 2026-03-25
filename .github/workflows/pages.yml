@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - "docs/**"
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 permissions:
@@ -27,6 +30,16 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
+      - name: Download firmware from latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download --repo "Siryll/wg_display_embedded_test" --pattern firmware.bin --dir docs --clobber; then
+            echo "Downloaded firmware.bin from Siryll/wg_display_embedded_test latest release"
+          else
+            echo "No firmware.bin release asset found in Siryll/wg_display_embedded_test; continuing with existing docs/firmware.bin if present"
+          fi
 
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1

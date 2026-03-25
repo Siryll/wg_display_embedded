@@ -6,7 +6,7 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "https://github.com/Siryll/wg_display_embedded/releases/latest/download/firmware.bin",
+          "path": "firmware.bin",
           "offset": 0
         }
       ]
