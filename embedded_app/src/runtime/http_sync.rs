@@ -1,3 +1,17 @@
+//! Channel-based bridge allowing synchronous HTTP calls from Wasmtime host function [runtime::host_api::http](crate::runtime::host_api::http).
+//!
+//! Due to potenial memory corruption issues with multiple [EspHttpClient](crate::http_client::EspHttpClient) instances, all http request are processed by [http_handler_task] even for async functions.
+//! 
+//!
+//! ```text
+//! Core 1 (widget)          Core 0 (embassy)
+//! ───────────────          ────────────────
+//! http_request_sync()  ──► HTTP_REQUEST_CHANNEL
+//!   polls with 10ms         http_handler_task() dequeues
+//!   RTOS yields       ◄──  HTTP_RESPONSE_CHANNEL
+//! ```
+//! 
+//! Timeout on both sides: **30 seconds**.
 use crate::runtime::widget::widget::http;
 use crate::util::globals;
 use alloc::string::String;
@@ -10,6 +24,7 @@ use esp_hal::time::Duration as HalDuration;
 use esp_rtos::CurrentThreadHandle;
 
 // HTTP request/response bridge for sync-to-async communication
+/// An HTTP request queued from the synchronous widget side to the async handler.
 #[derive(Clone)]
 pub struct HttpRequest {
     pub method: BridgeMethod,
@@ -17,6 +32,7 @@ pub struct HttpRequest {
     pub body: Option<Vec<u8>>,
 }
 
+/// HTTP method variants used by the bridge
 #[derive(Clone, Copy, PartialEq)]
 pub enum BridgeMethod {
     Get,
@@ -24,6 +40,7 @@ pub enum BridgeMethod {
     Put,
     Delete,
     Head,
+    /// uses [`EspHttpClient::download`](crate::http_client::EspHttpClient::download) for large file downloads with automatic redirects.
     Download, // special method to allow for large file download and automatic re-direction
 }
 
@@ -52,12 +69,11 @@ impl BridgeMethod {
 
 pub type HttpResponse = Result<http::Response, ()>;
 
-// Channels for request/response communication
-// Capacity of 1 ensures only one request can be in-flight at a time
 static HTTP_REQUEST_CHANNEL: Channel<CriticalSectionRawMutex, HttpRequest, 1> = Channel::new();
 static HTTP_RESPONSE_CHANNEL: Channel<CriticalSectionRawMutex, HttpResponse, 1> = Channel::new();
 const ASYNC_BRIDGE_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Asynchronous HTTP request function callable from async context.
 pub async fn http_request_async(
     method: BridgeMethod,
     url: String,
@@ -83,10 +99,7 @@ pub async fn http_request_async(
 }
 
 /// Synchronous HTTP request function called from WIT host functions
-///
-/// This sends a request to the HTTP handler task and waits for the response.
-/// While waiting, it yields the current RTOS thread so Embassy tasks (including
-/// `embassy_net::Runner`) can keep running.
+/// Widget execution is halted until this function returns or times out.
 pub fn http_request_sync(
     method: http::Method,
     url: String,
@@ -132,9 +145,6 @@ pub fn http_request_sync(
                         if iterations.is_multiple_of(20) {
                             info!("Still waiting... iteration {}", iterations);
                         }
-
-                        // Crucial: sleep/yield the RTOS thread so the thread-mode
-                        // Embassy executor can run net_task + other async tasks.
                         current_thread.delay(HalDuration::from_millis(10));
                     }
                 }
@@ -148,8 +158,7 @@ pub fn http_request_sync(
 }
 
 /// Async task that handles HTTP requests from the channel
-///
-/// This should be spawned as a background task on startup
+/// Run on Core 0.
 #[embassy_executor::task]
 pub async fn http_handler_task() {
     defmt::info!("HTTP handler task started");

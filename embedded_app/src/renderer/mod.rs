@@ -1,3 +1,8 @@
+//! Widget execution loop, runs on the seccond core due to [Runtime::run()](crate::runtime::Runtime::run()) being blocking due to Wasmtime's host functions. 
+//! See [`runtime::http_sync`](crate::runtime::http_sync) for details.
+//! Only loads and runs widgets once their update cycle has passed.
+//!
+
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -17,6 +22,7 @@ use embedded_graphics_framebuf::FrameBuf;
 use crate::runtime::Runtime;
 use crate::util::globals;
 
+/// Constant for the delay between widget update checks
 const RENDER_TICK_MS: u64 = 1000;
 const DISPLAY_WIDTH: u32 = 320;
 const DISPLAY_HEIGHT: u32 = 240;
@@ -68,6 +74,8 @@ impl Renderer {
             .collect();
     }
 
+    /// Renderer loop, stores copy of [`SystemConfiguration`] and updates it only if changes are detected via [`Storage::get_system_config_change`](crate::storage::Storage::get_system_config_change).
+    /// This function will never return and run indefinitly.
     pub async fn run(&mut self) {
         let mut config = globals::with_storage(|storage| {
             let config = storage.get_system_config();

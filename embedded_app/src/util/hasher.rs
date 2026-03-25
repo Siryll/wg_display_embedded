@@ -1,22 +1,24 @@
+//! SHA-256 hashing with hardware SHA peripheral.
 use esp_hal::{
     peripherals::SHA,
     sha::{Sha, Sha256},
 };
 use nb::block;
 
+/// Wraps the ESP32 hardware SHA peripheral for SHA-256 computation.
 pub struct Hasher<'d> {
     sha: Sha<'d>,
 }
 
 impl<'d> Hasher<'d> {
+    /// Creates a new [`Hasher`] from the `SHA` peripheral.
     pub fn new(sha_peripherals: SHA<'d>) -> Self {
         Self {
             sha: Sha::new(sha_peripherals),
         }
     }
 
-    // create a 12 bit hash for the wasm binary nvs storage
-    // based on the example from https://docs.rs/esp32-hal/latest/esp32_hal/sha/index.html
+    /// Returns the first 14 bytes of the digest
     pub fn hash(&mut self, input: &str) -> [u8; 14] {
         let mut hasher = self.sha.start::<Sha256>();
         let mut remaining = input.as_bytes();

@@ -1,3 +1,53 @@
+//! Wasmtime WebAssembly Component Model runtime for widget execution.
+//!
+//! Widgets are precompiled WASM components that export a standard WIT interface.
+//! Each widget execution creates a fresh [`Runtime`] instance — no WASM state
+//! persists between runs.
+//!
+//! ## Wasmtime feature flags
+//! Many optional Wasmtime features are disabled to reduce binary size and
+//! memory usage on the ESP32-S3:
+//! - SIMD, multi-value, tail-call, GC, concurrency: **disabled**
+//! - signals-based traps, memory reservation/guard, copy-on-write: **disabled**
+//! - Component model + bulk-memory: **enabled** (required for WIT)
+//!
+//! ## Module Files
+//!
+//! | File | Purpose |
+//! |---|---|
+//! | `mod.rs` | [`Runtime`] struct — engine, linker, store, widget lifecycle |
+//! | `platform.rs` | Per-core thread-local storage for Wasmtime (PRO_CPU = 0, APP_CPU = 1) |
+//! | `http_sync.rs` | Async-to-sync HTTP bridge for widget HTTP calls |
+//! | `host_api/` | Host function implementations (http, clocks, logging, random) |
+//!
+//! ## Precompiled Widgets
+//!
+//! [`Runtime::load_module`] expects a **precompiled** WASM component (`Component::deserialize`),
+//! not a raw `.wasm` binary. Raw components must be precompiled off-device using a Wasmtime
+//! build targeting `xtensa-esp32s3-none-elf` with the same Wasmtime version (42.0.1).
+//! See `docs/widget-development.md` for the full build pipeline.
+//!
+//! ## HTTP Bridge Consumers
+//!
+//! [`http_sync::http_request_sync`] is called from both async and sync contexts:
+//!
+//! | Consumer | Purpose |
+//! |---|---|
+//! | Host API `http.rs` | widget WASM HTTP calls (sync side of bridge) |
+//! | `widget/store/mod.rs` | fetch remote `widget_store.json` |
+//! | `widget/manager/mod.rs` | download widget WASM binary for installation |
+//! | `util/esptime.rs` | fetch Unix timestamp from `timeapi.io` |
+//!
+//! ## Host API (`host_api/`)
+//!
+//! | Module | WIT interface | Implementation |
+//! |---|---|---|
+//! | `http.rs` | `http` | calls [`http_sync::http_request_sync`] |
+//! | `clocks.rs` | `clocks` | reads [`globals::now_parts`](crate::util::globals::now_parts) |
+//! | `logging.rs` | `logging` | maps to `defmt::{debug,info,warn,error}` with `[WIDGET]` prefix |
+//! | `random.rs` | `random` | two reads from ESP32 hardware RNG → `u64` |
+//!
+//! WIT definitions: `embedded_app/src/runtime/host_api/wit/*.wit`
 mod platform;
 
 mod host_api;
@@ -16,6 +66,7 @@ use crate::runtime::widget::widget::types::Datetime;
 // links wit finctions, implementations in host_api
 wasmtime::component::bindgen!({ path: "src/runtime/host_api/wit" });
 
+/// Marker type for Wasmtime host state. No host state is stored per-instance.
 pub struct WidgetState {}
 
 impl WidgetState {
@@ -24,12 +75,14 @@ impl WidgetState {
     }
 }
 
+/// A precompiled WASM component binary with its Wasmtime compatibility hash.
 #[allow(dead_code)]
 pub struct CompiledModule {
     data: Vec<u8>,
     compatibility_hash: u64,
 }
 
+/// Wasmtime runtime handle for loading, instantiating, and executing widget components.
 pub struct Runtime {
     engine: Engine,
     linker: Linker<WidgetState>,
@@ -38,6 +91,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// Creates a new runtime with an optimised Wasmtime configuration for embedded use.
     pub fn new() -> Self {
         defmt::info!("Initializing Wasmtime runtime");
 
@@ -85,6 +139,15 @@ impl Runtime {
         }
     }
 
+    /// Deserialises a precompiled Wasmtime component from raw bytes.
+    ///
+    /// # Safety
+    /// The bytes **must** be a Wasmtime precompiled component artifact produced
+    /// by the same Wasmtime version (42.0.1) targeting `xtensa-esp32s3-none-elf`.
+    /// Passing a raw `.wasm` file or a mismatched artifact will return an error.
+    ///
+    /// # Errors
+    /// Returns an error if `bytes` is not recognised as a precompiled component.
     pub unsafe fn load_module(&self, bytes: &[u8]) -> Result<Component> {
         defmt::debug!("Loading precompiled module ({} bytes)", bytes.len());
 
@@ -116,6 +179,11 @@ impl Runtime {
         Ok(component)
     }
 
+    /// Binds host functions and instantiates a loaded component.
+    ///
+    /// # Errors
+    /// Returns an error if the component's imports cannot be satisfied by the
+    /// current host API linker (e.g. WIT interface mismatch).
     pub fn instantiate(&mut self, component: &Component) -> Result<Widget> {
         defmt::debug!("Instantiating component");
 
@@ -134,6 +202,11 @@ impl Runtime {
         Ok(widget)
     }
 
+    /// Calls the widget's `run` export with the given JSON config string.
+    ///
+    /// Passes a [`WidgetContext`] containing the last-invocation timestamp and
+    /// the widget's current config. Returns the [`WidgetResult`] containing the
+    /// text to display on screen.
     pub fn run(
         &mut self,
         widget: &Widget,
@@ -172,18 +245,22 @@ impl Runtime {
         Ok(Some(result))
     }
 
+    /// Returns the widget's display name (calls `get-name` WIT export).
     pub fn get_widget_name(&mut self, widget: &Widget) -> wasmtime::Result<String> {
         widget.call_get_name(&mut self.store)
     }
 
+    /// Returns the widget's JSON Schema config string (calls `get-config-schema` WIT export).
     pub fn get_config_schema(&mut self, widget: &Widget) -> wasmtime::Result<String> {
         widget.call_get_config_schema(&mut self.store)
     }
 
+    /// Returns the widget's semver version string (calls `get-version` WIT export).
     pub fn get_widget_version(&mut self, widget: &Widget) -> wasmtime::Result<String> {
         widget.call_get_version(&mut self.store)
     }
 
+    /// Returns how often the widget should be run in seconds (calls `get-run-update-cycle-seconds`).
     pub fn get_run_update_cycle_seconds(&mut self, widget: &Widget) -> wasmtime::Result<u32> {
         widget.call_get_run_update_cycle_seconds(&mut self.store)
     }

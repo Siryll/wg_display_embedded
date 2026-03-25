@@ -1,3 +1,24 @@
+//! Web UI and REST API server using [picoserve](https://github.com/sammhicks/picoserve).
+//!
+//! ## Configuration
+//!
+//! [`WEB_TASK_POOL_SIZE`] sets the number of concurrent web task. Greatly increased RAM usage with each task.
+//! [`TCP_BUFFER_SIZE`] sets the size of the TCP buffer for each connection.
+//! [`HTTP_BUFFER_SIZE`] sets the size of the HTTP buffer. This greatly impact the upload speed of assets and files.
+//!
+//! ## Route Structure
+//!
+//! | Route | Method | Description |
+//! |---|---|---|
+//! | `/get_store_items` | GET | Fetch remote widget store listing |
+//! | `/system_config` | GET | Read current system configuration |
+//! | `/system_config` | POST | Save new system configuration |
+//! | `/install_widget` | POST | Install widget from URL or store name |
+//! | `/deinstall_widget/<name>` | GET | Uninstall a widget by name |
+//! | `/config_schema/<name>` | GET | Get widget JSON config schema |
+//! | `/widget_config/<name>` | POST | Save widget configuration |
+//! | `/widget_configuration/<name>` | GET | Serve widget config HTML page |
+//!
 use alloc::format;
 use defmt::{error, info};
 use embassy_executor::Spawner;

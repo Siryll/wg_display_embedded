@@ -20,8 +20,7 @@ use mipidsi::interface::SpiInterface;
 use mipidsi::models::ILI9342CRgb565;
 use mipidsi::options::ColorOrder;
 
-// Use the DMA-enabled SPI bus type.
-// from https://github.com/georgik/esp32-conways-game-of-life-rs/blob/main/esp32-s3-box-3/src/main.rs
+// Use SPI with direct memory access, based on https://github.com/georgik/esp32-conways-game-of-life-rs/blob/main/esp32-s3-box-3/src/main.rs
 type MyDisplay = mipidsi::Display<
     SpiInterface<
         'static,
@@ -38,6 +37,7 @@ pub struct Display {
 
 impl Display {
     #[allow(clippy::too_many_arguments)]
+    /// Initialize the display, needs all peripherals as seperate arguements since [`Storage`](crate::storage::Storage) and [`Wifi`](crate::wifi::Wifi) also rely on peripherals.
     pub fn new(
         spi2: peripherals::SPI2<'static>,
         dma_ch0: peripherals::DMA_CH0<'static>,

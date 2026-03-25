@@ -1,3 +1,4 @@
+//! Widget installation and removal.
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -6,10 +7,14 @@ use crate::runtime::http_sync::{self, BridgeMethod};
 use crate::storage::StorageError;
 use crate::util::globals;
 
+/// Errors returned by widget management operations.
 #[derive(Debug, defmt::Format)]
 pub enum WidgetManagerError {
+    /// A storage read/write failed.
     Storage(StorageError),
+    /// An HTTP request failed.
     HttpError(&'static str),
+    /// A WASM load, instantiation, or metadata extraction failed.
     WasmError(&'static str),
 }
 
@@ -31,6 +36,7 @@ impl From<reqwless::Error> for WidgetManagerError {
     }
 }
 
+/// Zero-sized helper that provides static methods for widget lifecycle management.
 pub struct WidgetManager;
 
 impl WidgetManager {

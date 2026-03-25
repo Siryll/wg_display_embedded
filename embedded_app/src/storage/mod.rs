@@ -1,3 +1,8 @@
+//! NVS-backed persistent storage for widget binaries, system config, and WiFi credentials.
+//!
+//! Two namespaces used:
+//! - `"config"` — for all config related data. Stores WIFI Name and Password and [`SystemConfiguration`].
+//! - `"wasm"` — precompiled widget WASM binaries, name hashed to fit NVS key length limit with [`Hasher`].
 use crate::util::hasher::Hasher;
 use alloc::string::ToString;
 use common::models::{SystemConfiguration, WidgetInstallationData};
@@ -14,11 +19,16 @@ pub struct Storage<'d> {
     config_updated: bool,
 }
 
+/// Errors returned by storage operations.
 #[derive(Debug, defmt::Format)]
 pub enum StorageError {
+    /// Low-level flash read/write error.
     Flash(esp_storage::FlashStorageError),
+    /// Error reading or accessing the NVS partition table.
     Partition(partitions::Error),
+    /// The `"storage"` partition was not found in the partition table.
     PartitionNotFound,
+    /// NVS key read/write error.
     Nvs(NvsError),
 }
 
@@ -56,6 +66,8 @@ impl<'d> Storage<'d> {
         Key::from_array(&key_bytes)
     }
 
+    /// Creates and initialises the storage handle.
+    /// Reads the partition table from flash to find the `"storage"` partition and init NVS with the correct offset and size of that partition.
     pub fn new(flash: FLASH<'d>, sha_peripherals: SHA<'d>) -> Result<Self, StorageError> {
         let mut flash_storage = FlashStorage::new(flash).multicore_auto_park();
 
@@ -96,6 +108,9 @@ impl<'d> Storage<'d> {
         })
     }
 
+    /// Persists the system configuration to NVS.
+    ///
+    /// The write is skipped if there are no changes in the config to avoid flash wear.
     pub fn save_system_config(
         &mut self,
         system_config: &SystemConfiguration,
@@ -115,6 +130,7 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
+    /// Reads and deserialises the system configuration, returns a default [`SystemConfiguration`] if no config has been saved yet (First boot).
     pub fn get_system_config(&mut self) -> Result<SystemConfiguration, StorageError> {
         let value: alloc::string::String = self.config_get("system_config")?;
         let config: SystemConfiguration =
@@ -122,6 +138,8 @@ impl<'d> Storage<'d> {
         Ok(config)
     }
 
+    /// Only returns the sytem config if there has been a change since the last call to this function, otherwise returns `None`.
+    /// used by [Renderer](crate::renderer::Renderer) to detect config changes.
     pub fn get_system_config_change(&mut self) -> Option<SystemConfiguration> {
         if self.config_updated {
             self.config_updated = false;
@@ -137,6 +155,7 @@ impl<'d> Storage<'d> {
         }
     }
 
+    /// Writes a widget WASM binary to NVS **and** adds it to the system config in one call.
     pub fn save_compiled_widget(
         &mut self,
         name: &str,
@@ -159,6 +178,7 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
+    /// Removes a widget's WASM binary from NVS and deletes its entry from the system config.
     pub fn deinstall_widget(&mut self, name: &str) -> Result<(), StorageError> {
         // self.wasm_read(name)?; // check if widget exists
         self.wasm_delete(name)?; // remove widget data
@@ -168,6 +188,7 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
+    /// Stores a key-value string in the `"config"` NVS namespace.
     pub fn config_set(&mut self, key: &str, value: &str) -> Result<(), StorageError> {
         info!("Setting config for key '{}'", key);
         let ns = Key::from_str("config");
@@ -176,6 +197,7 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
+    /// Reads a key-value string from the `"config"` NVS namespace.
     pub fn config_get(&mut self, key: &str) -> Result<alloc::string::String, StorageError> {
         info!("Getting config for key '{}'", key);
         let ns = Key::from_str("config");
@@ -183,6 +205,7 @@ impl<'d> Storage<'d> {
         Ok(self.nvs.get(&ns, &k)?)
     }
 
+    /// Writes a raw WASM binary to the `"wasm"` NVS namespace.
     pub fn wasm_write(&mut self, name: &str, data: &[u8]) -> Result<(), StorageError> {
         let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
@@ -194,6 +217,7 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
+    /// Reads a previously stored WASM binary from the `"wasm"` NVS namespace.
     pub fn wasm_read(&mut self, name: &str) -> Result<alloc::vec::Vec<u8>, StorageError> {
         let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
@@ -204,6 +228,7 @@ impl<'d> Storage<'d> {
         Ok(self.nvs.get(&ns, &key)?)
     }
 
+    /// Deletes a WASM binary from the `"wasm"` NVS namespace.
     pub fn wasm_delete(&mut self, name: &str) -> Result<(), StorageError> {
         let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
@@ -215,6 +240,7 @@ impl<'d> Storage<'d> {
         Ok(())
     }
 
+    /// Returns the names of all installed widgets from the system config.
     #[allow(dead_code)]
     pub fn list_widgets(&mut self) -> Result<alloc::vec::Vec<alloc::string::String>, StorageError> {
         let config = self.get_system_config()?;

@@ -1,3 +1,22 @@
+//! Async HTTPS client using `reqwless` and `embassy-net`.
+//!
+//! ## Buffer sizes
+//! - TLS RX/TX buffers: 16,640 bytes each (allocated in PSRAM)
+//! - Response buffer: 524,288 bytes ≈512 KB (PSRAM) — determines the maximum
+//!   downloadable file size, including widget WASM binaries. This also is the max size of a storeable widget with [`Storage`](crate::storage::Storage).
+//!
+//! ## Security
+//! TLS certificate verification is **disabled** (`TlsVerify::None`).
+//!
+//! ## Usage
+//!
+//! Obtain the global instance via
+//! [`http_sync::http_request_async`](crate::runtime::http_sync::http_request_async)
+//! from async contexts, or
+//! [`http_sync::http_request_sync`](crate::runtime::http_sync::http_request_sync)
+//! from sync contexts (e.g. widget WASM host functions). Do not construct
+//! [`EspHttpClient`] directly outside of the global initialisation in
+//! [`globals`](crate::util::globals).
 use alloc::vec::Vec;
 use defmt::{info, warn};
 use embassy_net::{
@@ -11,12 +30,14 @@ use reqwless::{
     request::RequestBuilder,
 };
 
+/// Obtain global instance by calling ['http_sync::http_request_async'](crate::runtime::http_sync::http_request_async) from async functions or ['http_sync::http_request_sync'](crate::runtime::http_sync::http_request_sync) from synchronous functions.
 pub struct EspHttpClient {
     stack: Stack<'static>,
     tls_seed: u64,
 }
 
 impl EspHttpClient {
+    /// Creates a new client from a network stack and TLS seed.
     pub fn new(stack: Stack<'static>, tls_seed: u64) -> Self {
         Self { stack, tls_seed }
     }
@@ -51,6 +72,12 @@ impl EspHttpClient {
             .await
     }
 
+    /// Sends HTTPS requests and returns the response body.
+    ///
+    /// # Arguments
+    /// - `method` — HTTP verb (GET, POST, PUT, DELETE, HEAD, …)
+    /// - `url` — Full HTTPS URL of the target endpoint
+    /// - `body` — Optional request body bytes; pass `None` for GET/HEAD/DELETE
     pub async fn request(
         &self,
         method: reqwless::request::Method,
@@ -63,6 +90,7 @@ impl EspHttpClient {
 
         let mut rx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
         let mut tx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
+        // TODO: possibly only allocate big buffer if request fails with small buffer
         let mut response_buffer = alloc::vec![0u8; 524288].into_boxed_slice();
 
         info!("Creating TLS config for HTTP client...");
@@ -93,9 +121,11 @@ impl EspHttpClient {
         Ok(body_bytes.to_vec())
     }
 
-    /// Download a file from `url`, following up to 5 redirects.
-    /// Uses a 512KB response buffer suitable for WASM widget binaries stored in PSRAM.
-    /// This is also the max size data can have when using NVS storage.
+    /// Downloads a file from `url`, following up to 5 HTTP redirects.
+    /// Used to download widget binaries from the internet.
+    ///
+    /// # Errors
+    /// Returns [`Error::Codec`] if the redirect limit is exceeded
     pub async fn download(&self, url: &str) -> Result<Vec<u8>, Error> {
         const MAX_REDIRECTS: u8 = 5;
         let mut redirect_count: u8 = 0;

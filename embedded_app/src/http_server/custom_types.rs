@@ -1,3 +1,4 @@
+/// Types used by [``http_server``](crate::http_server) handlers to serve different types of content and errors
 use alloc::string::String;
 use picoserve::response::{IntoResponse, StatusCode};
 use serde::Deserialize;
@@ -17,7 +18,7 @@ impl From<String> for Error {
     }
 }
 
-// returns HTTP 500 with message
+/// returns HTTP 500 with message
 impl IntoResponse for Error {
     async fn write_to<
         R: picoserve::io::Read,
@@ -39,6 +40,7 @@ impl IntoResponse for Error {
 
 pub type HandlerResult<T> = Result<T, Error>;
 
+/// Implementation for serving HTML responses, used by [`http_server::get_widget_config`](crate::http_server::get_widget_config).
 pub struct HtmlResponse(pub String);
 
 impl IntoResponse for HtmlResponse {
@@ -59,6 +61,7 @@ impl IntoResponse for HtmlResponse {
     }
 }
 
+/// Implementation for serving JSON responses of unknown structure.
 pub struct JsonStringResponse(pub String);
 
 impl IntoResponse for JsonStringResponse {
@@ -76,6 +79,7 @@ impl IntoResponse for JsonStringResponse {
     }
 }
 
+/// Wrapper for parsing JSON response from [`http_server::post_widget_config`](crate::http_server::post_widget_config).
 #[derive(Deserialize)]
 pub struct ConfigWrapper {
     pub config: String,

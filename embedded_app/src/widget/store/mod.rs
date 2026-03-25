@@ -1,3 +1,4 @@
+//! Remote widget store catalog fetched from GitHub.
 use crate::runtime::http_sync::{self, BridgeMethod};
 use alloc::string::FromUtf8Error;
 use alloc::vec::Vec;
