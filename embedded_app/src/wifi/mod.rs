@@ -1,12 +1,17 @@
 use defmt::{debug, info, warn};
 use embassy_executor::Spawner;
-use embassy_net::{Runner, Stack, StackResources};
+use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
 use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_hal::rng::Rng;
 use esp_radio::wifi::{
-    ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice, WifiEvent, WifiStaState,
+    AccessPointConfig, ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice,
+    WifiEvent, WifiStaState,
 };
+use core::net::Ipv4Addr;
+use core::str::FromStr;
+
+const AP_GATEWAY_IP: &str = "192.168.2.1";
 
 #[allow(
     clippy::large_stack_frames,
@@ -34,6 +39,7 @@ impl Wifi {
         spawner: &Spawner,
         ssid: alloc::string::String,
         password: alloc::string::String,
+        use_ap: bool,
     ) -> Self {
         // init radio wifi
         let radio_init = &*mk_static!(
@@ -42,34 +48,59 @@ impl Wifi {
         );
         let (mut controller, interfaces) =
             esp_radio::wifi::new(radio_init, wifi_peripheral, Default::default()).unwrap();
-        // Set station mode
-        let wifi_interface = interfaces.sta;
-        // Init dhcp config
-        let config = embassy_net::Config::dhcpv4(Default::default());
 
         let rng = Rng::new();
         let net_seed = rng.random() as u64 | ((rng.random() as u64) << 32);
         let tls_seed = rng.random() as u64 | ((rng.random() as u64) << 32);
 
+        let (wifi_interface, mode_config, net_config, log_msg) = if use_ap {
+            // Access Point mode
+            (
+                interfaces.ap,
+                ModeConfig::AccessPoint(
+                    AccessPointConfig::default()
+                        .with_ssid(ssid.clone()),
+                ),
+                embassy_net::Config::ipv4_static(StaticConfigV4 {
+                    address: Ipv4Cidr::new(Ipv4Addr::new(192, 168, 2, 1), 24),
+                    gateway: Some(Ipv4Addr::new(192, 168, 2, 1)),
+                    dns_servers: Default::default(),
+                }),
+                "WiFi configured in AP mode",
+            )
+        } else {
+            // Station mode
+            (
+                interfaces.sta,
+                ModeConfig::Client(
+                    ClientConfig::default()
+                        .with_ssid(ssid.clone())
+                        .with_password(password),
+                ),
+                embassy_net::Config::dhcpv4(Default::default()),
+                "WiFi configured in station mode",
+            )
+        };
+
         // Init network stack
         let (stack, runner) = embassy_net::new(
             wifi_interface,
-            config,
+            net_config,
             mk_static!(StackResources<8>, StackResources::<8>::new()),
             net_seed,
         );
 
-        // configure wifi with credentials
-        let station_config = ModeConfig::Client(
-            ClientConfig::default()
-                .with_ssid(ssid)
-                .with_password(password),
-        );
-        controller.set_config(&station_config).unwrap();
-        info!("Wifi configured");
+        // Configure WiFi with selected mode
+        controller.set_config(&mode_config).unwrap();
+        info!("{}", log_msg);
 
-        // spawn wifi connection tasks
-        spawner.spawn(connection(controller)).ok();
+        // Spawn wifi connection tasks
+        if use_ap {
+            spawner.spawn(connection_ap(controller)).ok();
+            spawner.spawn(run_dhcp(stack, AP_GATEWAY_IP)).ok();
+        } else {
+            spawner.spawn(connection(controller)).ok();
+        }
         spawner.spawn(net_task(runner)).ok();
 
         Self { stack, tls_seed }
@@ -137,6 +168,76 @@ async fn connection(mut controller: WifiController<'static>) {
                 Timer::after(Duration::from_millis(5000)).await
             }
         }
+    }
+}
+
+#[embassy_executor::task]
+async fn run_dhcp(stack: Stack<'static>, gw_ip_addr: &'static str) {
+    use core::net::{Ipv4Addr, SocketAddrV4};
+
+    use edge_dhcp::{
+        io::{self, DEFAULT_SERVER_PORT},
+        server::{Server, ServerOptions},
+    };
+    use edge_nal::UdpBind;
+    use edge_nal_embassy::{Udp, UdpBuffers};
+
+    let ip = Ipv4Addr::from_str(gw_ip_addr).expect("dhcp task failed to parse gw ip");
+
+    let mut buf = [0u8; 1500];
+
+    let mut gw_buf = [Ipv4Addr::UNSPECIFIED];
+
+    let buffers = UdpBuffers::<3, 1024, 1024, 10>::new();
+    let unbound_socket = Udp::new(stack, &buffers);
+    let mut bound_socket = unbound_socket
+        .bind(core::net::SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::UNSPECIFIED,
+            DEFAULT_SERVER_PORT,
+        )))
+        .await
+        .unwrap();
+
+    loop {
+        _ = io::server::run(
+            &mut Server::<_, 64>::new_with_et(ip),
+            &ServerOptions::new(ip, Some(&mut gw_buf)),
+            &mut bound_socket,
+            &mut buf,
+        )
+        .await
+        .inspect_err(|_| warn!("DHCP server error"));
+        Timer::after(Duration::from_millis(500)).await;
+    }
+}
+
+#[embassy_executor::task]
+async fn connection_ap(mut controller: WifiController<'static>) {
+    info!("start AP connection task");
+
+    if !matches!(controller.is_started(), Ok(true)) {
+        info!("Starting WiFi AP");
+        controller.start_async().await.unwrap();
+        info!("WiFi AP started");
+    }
+
+    loop {
+        let events = controller
+            .wait_for_events(
+                WifiEvent::ApStaConnected | WifiEvent::ApStaDisconnected,
+                true,
+            )
+            .await;
+
+        if events.contains(WifiEvent::ApStaConnected) {
+            info!("Station connected to AP");
+        }
+
+        if events.contains(WifiEvent::ApStaDisconnected) {
+            info!("Station disconnected from AP");
+        }
+
+        Timer::after(Duration::from_millis(200)).await;
     }
 }
 

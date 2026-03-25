@@ -94,6 +94,9 @@ serde-json-core = "0.6.0"
 serde_json = {version = "1.0.149", default-features = false, features = ["alloc"] }
 nb = "1.1.0"
 embedded-hal = "1.0.0"
+edge-nal = "0.6.0"
+edge-dhcp = "0.7.0"
+edge-nal-embassy = "0.8.1"
 
 [profile.dev]
 # Rust debug is too slow.
