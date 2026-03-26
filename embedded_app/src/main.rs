@@ -16,6 +16,7 @@ use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::system::Stack as CoreStack;
+use esp_hal::system::software_reset;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println as _;
 use esp_rtos::embassy::Executor;
@@ -136,71 +137,90 @@ async fn main(spawner: Spawner) -> ! {
     globals::init_display(display).await;
 
     // -- Wifi setup --
-    let ssid = globals::with_storage(|storage| storage.config_get("ssid").unwrap()).await;
-    let password = globals::with_storage(|storage| storage.config_get("pw").unwrap()).await;
-    // let ssid = storage.config_get("ssid").unwrap();
-    // let password = storage.config_get("pw").unwrap();
+    let ssid = globals::with_storage(|storage| storage.config_get("ssid")).await;
+    let password = globals::with_storage(|storage| storage.config_get("pw")).await;
+
+    // check current wifi mode, if nothing is set (first boot) or wifi connection fails this will be set to ap (Access Point) mode
+    // otherwise the device will start in station mode and try to connect to the set wifi network, will switch back to ap mode if this fails
+    let wifi_mode = globals::with_storage(|storage| storage.config_get("wifi_mode"))
+        .await
+        .unwrap_or_else(|_| alloc::string::String::from("ap"));
+    let force_ap_mode = wifi_mode == "ap";
 
     let wifi_peripheral = peripherals.WIFI;
+    // start in station mode
+    if !force_ap_mode {
+        if let (Ok(ssid), Ok(password)) = (ssid, password) {
+            let _ =
+                globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
+            let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password, false);
+            wifi.wait_for_connection().await;
+            globals::init_network(wifi.stack(), wifi.tls_seed());
 
-    let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password);
-    wifi.wait_for_connection().await;
-    globals::init_network(wifi.stack(), wifi.tls_seed());
+            // -- Server setup --
+            http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
 
-    // Test HTTPS client first
-    // info!("Testing direct HTTPS request...");
-    // let http_client = globals::http_client();
-    // let response = http_client
-    //     .get("https://jsonplaceholder.typicode.com/todos/1")
-    //     .await
-    //     .expect("Failed to make GET request");
-    // match core::str::from_utf8(&response) {
-    //     Ok(s) => info!("Direct HTTPS Response: {}", s),
-    //     Err(_) => info!(
-    //         "Direct HTTPS Response: [binary data, {} bytes]",
-    //         response.len()
-    //     ),
-    // }
+            // -- Spawn HTTP handler task for widget runtime --
+            spawner
+                .spawn(runtime::http_sync::http_handler_task())
+                .expect("Failed to spawn HTTP handler task");
+            info!("HTTP handler task spawned on core0 executor");
 
-    // -- Spawn HTTP handler task for widget runtime --
-    spawner
-        .spawn(runtime::http_sync::http_handler_task())
-        .expect("Failed to spawn HTTP handler task");
-    info!("HTTP handler task spawned on core0 executor");
+            let mut esp_time = EspTime::new();
+            esp_time.fetch_time().await;
+            globals::init_time(esp_time);
+            info!("Global time synced from time API");
 
-    let mut esp_time = EspTime::new();
-    esp_time.fetch_time().await;
-    globals::init_time(esp_time);
-    info!("Global time synced from time API");
+            // -- Init and start widget runner on second core --
+            static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
+            let app_core_stack = APP_CORE_STACK.init(CoreStack::new());
 
-    // -- Init and start widget runner on second core --
-    static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
-    let app_core_stack = APP_CORE_STACK.init(CoreStack::new());
+            esp_rtos::start_second_core(
+                peripherals.CPU_CTRL,
+                sw_int.software_interrupt0,
+                sw_int.software_interrupt1,
+                app_core_stack,
+                || {
+                    static CORE1_EXECUTOR: StaticCell<Executor> = StaticCell::new();
+                    let executor = CORE1_EXECUTOR.init(Executor::new());
 
-    esp_rtos::start_second_core(
-        peripherals.CPU_CTRL,
-        sw_int.software_interrupt0,
-        sw_int.software_interrupt1,
-        app_core_stack,
-        || {
-            static CORE1_EXECUTOR: StaticCell<Executor> = StaticCell::new();
-            let executor = CORE1_EXECUTOR.init(Executor::new());
+                    executor.run(|core1_spawner| {
+                        core1_spawner
+                            .spawn(widget_runner())
+                            .expect("Failed to spawn widget runner on core1");
+                        info!("Widget runner task spawned on core1");
+                    });
+                },
+            );
+        } else {
+            info!("WiFi credentials not configured, switching to AP mode");
+            let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
+            let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
+            globals::init_network(wifi.stack(), wifi.tls_seed());
 
-            executor.run(|core1_spawner| {
-                core1_spawner
-                    .spawn(widget_runner())
-                    .expect("Failed to spawn widget runner on core1");
-                info!("Widget runner task spawned on core1");
-            });
-        },
-    );
-    // -- Server setup --
-    http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+            // -- Server setup --
+            http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+        }
+    } else {
+        info!("WiFi mode is set to AP, starting in AP mode");
+        let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
+        let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
+        globals::init_network(wifi.stack(), wifi.tls_seed());
+
+        // -- Server setup --
+        http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+    }
 
     // TODO: Spawn some tasks
     let _ = spawner;
 
     loop {
+        if globals::take_reboot_request() {
+            info!("Rebooting device due to provisioning request");
+            Timer::after(Duration::from_millis(250)).await;
+            software_reset();
+        }
+
         // info!("Hello world!");
         Timer::after(Duration::from_secs(10)).await;
     }

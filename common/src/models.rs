@@ -27,6 +27,17 @@ pub struct SystemConfiguration {
     pub widgets: Vec<WidgetInstallationData>,
 }
 
+#[derive(Deserialize, Serialize, Clone, PartialEq, Default, Debug)]
+pub struct WifiCredentials {
+    pub ssid: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, Serialize, Clone, PartialEq, Default, Debug)]
+pub struct WifiModeResponse {
+    pub is_ap_mode: bool,
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub enum InstallAction {
     FromUrl(String),
