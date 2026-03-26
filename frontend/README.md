@@ -40,7 +40,3 @@ trunk build --release
 ```
 
 Output goes to `dist/`. The main embedded app build (`make build`) runs both of these automatically.
-
-## API Integration
-
-The frontend uses `gloo-net` for HTTP calls. All API calls target the same origin (the device IP). See [HTTP API Reference](../docs/http-api.md) for the full endpoint list.
