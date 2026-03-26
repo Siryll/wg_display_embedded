@@ -36,7 +36,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release download --repo "Siryll/wg_display_embedded" --pattern firmware.bin --dir docs --clobber; then
-            echo "Downloaded firmware.bin from Siryll/wg_display_embedded_test latest release"
+            echo "Downloaded firmware.bin from Siryll/wg_display_embedded latest release"
           else
             echo "No firmware.bin release asset found in Siryll/wg_display_embedded_test; continuing with existing docs/firmware.bin if present"
           fi
