@@ -2,7 +2,12 @@
 
 Port of the [wg_display](https://github.com/eliabieri/wg_display) running on the ESP32-S3-Box-3.
 
-## Requirements
+## Install
+
+Install the latest release directly to the ESP32-S3-Box-3 from [here](https://siryll.github.io/wg_display_embedded/).
+
+## Building from source
+### Requirements
 - [rustup](https://rustup.rs/)
 - [espup](https://docs.espressif.com/projects/rust/book/getting-started/toolchain.html#xtensa-devices)
 - [NPM/Node](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
@@ -10,7 +15,7 @@ Port of the [wg_display](https://github.com/eliabieri/wg_display) running on the
 
 When using WSL follow the [WSL instructions for ESP](https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/additionalfeatures/wsl.html#adding-the-required-linux-packages-in-wsl) instructions for the correct setup.
 
-## Installation
+### Installation
 For `picoserve` the 1.93.0 pre-release version of the espup rust compiled is needed, install it with:
 ```bash
 espup install --toolchain-version 1.93.0
@@ -21,7 +26,7 @@ The frontend requires [Trunk](https://crates.io/crates/trunk) to build:
 cargo install trunk
 ```
 
-## Building
+### Build
 Clone the repo:
 ```bash
 git clone https://github.com/Siryll/wg_display_embedded.git
