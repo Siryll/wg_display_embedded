@@ -4,8 +4,7 @@ use alloc::vec::Vec;
 use common::models::WidgetStoreItem;
 use defmt::info;
 
-const WIDGET_LISTING_URL: &str =
-    "https://siryll.github.io/wg_display_embedded/widget_store.json";
+const WIDGET_LISTING_URL: &str = "https://siryll.github.io/wg_display_embedded/widget_store.json";
 
 #[derive(Debug, defmt::Format)]
 pub enum WidgetStoreError {

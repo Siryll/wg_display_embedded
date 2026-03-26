@@ -43,7 +43,10 @@ async fn is_ap_mode() -> Result<bool, String> {
         .map_err(|err| format!("Failed to fetch WiFi mode: {err}"))?;
 
     if response.status() != 200 {
-        return Err(format!("Failed to fetch WiFi mode (HTTP {})", response.status()));
+        return Err(format!(
+            "Failed to fetch WiFi mode (HTTP {})",
+            response.status()
+        ));
     }
 
     let mode = response

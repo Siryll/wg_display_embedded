@@ -1,3 +1,6 @@
+use crate::util::globals;
+use core::net::Ipv4Addr;
+use core::str::FromStr;
 use defmt::{debug, info, warn};
 use embassy_executor::Spawner;
 use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
@@ -5,12 +8,9 @@ use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_hal::rng::Rng;
 use esp_radio::wifi::{
-    AccessPointConfig, ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice,
-    WifiEvent, WifiStaState,
+    AccessPointConfig, ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice, WifiEvent,
+    WifiStaState,
 };
-use crate::util::globals;
-use core::net::Ipv4Addr;
-use core::str::FromStr;
 
 const AP_GATEWAY_IP: &str = "192.168.2.1";
 const MAX_STATION_CONNECT_RETRIES: u8 = 8;
@@ -59,10 +59,7 @@ impl Wifi {
             // Access Point mode
             (
                 interfaces.ap,
-                ModeConfig::AccessPoint(
-                    AccessPointConfig::default()
-                        .with_ssid(ssid.clone()),
-                ),
+                ModeConfig::AccessPoint(AccessPointConfig::default().with_ssid(ssid.clone())),
                 embassy_net::Config::ipv4_static(StaticConfigV4 {
                     address: Ipv4Cidr::new(Ipv4Addr::new(192, 168, 2, 1), 24),
                     gateway: Some(Ipv4Addr::new(192, 168, 2, 1)),
@@ -180,8 +177,9 @@ async fn connection(mut controller: WifiController<'static>) {
                         MAX_STATION_CONNECT_RETRIES
                     );
 
-                    let mode_set = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap"))
-                        .await;
+                    let mode_set =
+                        globals::with_storage(|storage| storage.config_set("wifi_mode", "ap"))
+                            .await;
 
                     if mode_set.is_ok() {
                         globals::request_reboot();
