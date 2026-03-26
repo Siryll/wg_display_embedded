@@ -223,6 +223,7 @@ async fn post_wifi_credentials_and_restart(
     globals::with_storage(|storage| {
         storage.config_set("ssid", ssid.as_str())?;
         storage.config_set("pw", password.as_str())?;
+        storage.config_set("wifi_mode", "station")?;
         Ok::<(), crate::storage::StorageError>(())
     })
     .await

@@ -203,7 +203,6 @@ async fn main(spawner: Spawner) -> ! {
         }
     } else {
         info!("WiFi mode is set to AP, starting in AP mode");
-        let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
         let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
         globals::init_network(wifi.stack(), wifi.tls_seed());
 
