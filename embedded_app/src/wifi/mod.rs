@@ -8,10 +8,12 @@ use esp_radio::wifi::{
     AccessPointConfig, ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice,
     WifiEvent, WifiStaState,
 };
+use crate::util::globals;
 use core::net::Ipv4Addr;
 use core::str::FromStr;
 
 const AP_GATEWAY_IP: &str = "192.168.2.1";
+const MAX_STATION_CONNECT_RETRIES: u8 = 8;
 
 #[allow(
     clippy::large_stack_frames,
@@ -138,6 +140,8 @@ impl Wifi {
 #[embassy_executor::task]
 async fn connection(mut controller: WifiController<'static>) {
     info!("start connection task");
+    let mut failed_connect_attempts: u8 = 0;
+
     loop {
         if esp_radio::wifi::sta_state() == WifiStaState::Connected {
             // wait until we're no longer connected
@@ -162,9 +166,31 @@ async fn connection(mut controller: WifiController<'static>) {
         info!("About to connect...");
 
         match controller.connect_async().await {
-            Ok(_) => info!("Wifi connected!"),
+            Ok(_) => {
+                failed_connect_attempts = 0;
+                info!("Wifi connected!");
+            }
             Err(e) => {
+                failed_connect_attempts = failed_connect_attempts.saturating_add(1);
                 warn!("Failed to connect to wifi: {:?}", e);
+
+                if failed_connect_attempts >= MAX_STATION_CONNECT_RETRIES {
+                    warn!(
+                        "Failed to connect {} times, switching to AP mode and rebooting",
+                        MAX_STATION_CONNECT_RETRIES
+                    );
+
+                    let mode_set = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap"))
+                        .await;
+
+                    if mode_set.is_ok() {
+                        globals::request_reboot();
+                        return;
+                    }
+
+                    warn!("Failed to persist AP fallback mode; continuing retries");
+                }
+
                 Timer::after(Duration::from_millis(5000)).await
             }
         }

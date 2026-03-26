@@ -5,7 +5,7 @@ use common::models::WidgetStoreItem;
 use defmt::info;
 
 const WIDGET_LISTING_URL: &str =
-    "https://raw.githubusercontent.com/eliabieri/wg_display/main/widget_store.json";
+    "https://siryll.github.io/wg_display_embedded/widget_store.json";
 
 #[derive(Debug, defmt::Format)]
 pub enum WidgetStoreError {

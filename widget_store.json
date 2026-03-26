@@ -8,5 +8,10 @@
         "name": "Public Transport",
         "description": "Displays public transport information",
         "repository": "https://github.com/Siryll/wg_display_embedded_widget_public_transport"
+    },
+    {
+        "name": "Time",
+        "description": "Display current time and date",
+        "repository": "https://github.com/Siryll/wg_display_embedded_widget_time"
     }
 ]

@@ -15,7 +15,7 @@ use crate::runtime::Runtime;
 use crate::widget::manager::WidgetManager;
 use crate::{util::globals, widget::store::WidgetStore};
 use common::models::WidgetStoreItem;
-use common::models::{InstallAction, SystemConfiguration};
+use common::models::{InstallAction, SystemConfiguration, WifiCredentials, WifiModeResponse};
 
 mod custom_types;
 mod frontend;
@@ -39,6 +39,11 @@ impl AppBuilder for Application {
         picoserve::Router::new()
             .route("/get_store_items", routing::get(get_store_items))
             .route("/install_widget", routing::post(post_install_widget))
+            .route("/wifi_mode", routing::get(get_wifi_mode))
+            .route(
+                "/wifi_credentials/restart",
+                routing::post(post_wifi_credentials_and_restart),
+            )
             .route(
                 "/system_config",
                 routing::get(get_system_config).post(post_system_config),
@@ -191,6 +196,40 @@ async fn get_system_config() -> HandlerResult<Json<SystemConfiguration>> {
             Ok(Json(default_config))
         }
     }
+}
+
+async fn get_wifi_mode() -> HandlerResult<Json<WifiModeResponse>> {
+    let mode = globals::with_storage(|storage| storage.config_get("wifi_mode"))
+        .await
+        .unwrap_or_else(|_| alloc::string::String::from("ap"));
+
+    Ok(Json(WifiModeResponse {
+        is_ap_mode: mode == "ap",
+    }))
+}
+
+async fn post_wifi_credentials_and_restart(
+    Json(credentials): Json<WifiCredentials>,
+) -> HandlerResult<()> {
+    let ssid = credentials.ssid;
+    let password = credentials.password;
+
+    if ssid.trim().is_empty() {
+        return Err(Error::new("SSID must not be empty"));
+    }
+
+    info!("Received WiFi credentials for SSID '{}'", ssid.as_str());
+
+    globals::with_storage(|storage| {
+        storage.config_set("ssid", ssid.as_str())?;
+        storage.config_set("pw", password.as_str())?;
+        Ok::<(), crate::storage::StorageError>(())
+    })
+    .await
+    .map_err(|e| Error::new(format!("Failed to save WiFi credentials: {:?}", e)))?;
+
+    globals::request_reboot();
+    Ok(())
 }
 
 async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult<()> {
