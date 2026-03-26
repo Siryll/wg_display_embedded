@@ -21,6 +21,7 @@ static mut TLS_SEED: Option<u64> = None;
 static ESP_TIME: CsMutex<RefCell<Option<EspTime>>> = CsMutex::new(RefCell::new(None));
 
 static NETWORK_READY: AtomicBool = AtomicBool::new(false);
+static REBOOT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 pub async fn init_storage(storage: Storage<'static>) {
     let mut guard = STORAGE.lock().await;
@@ -109,4 +110,13 @@ where
 
 pub fn now_parts() -> Option<(u64, u32)> {
     with_time(EspTime::now_parts)
+}
+
+pub fn request_reboot() {
+    REBOOT_REQUESTED.store(true, Ordering::Release);
+    info!("Reboot requested");
+}
+
+pub fn take_reboot_request() -> bool {
+    REBOOT_REQUESTED.swap(false, Ordering::AcqRel)
 }
