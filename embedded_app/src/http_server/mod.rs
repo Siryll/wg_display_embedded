@@ -2,8 +2,9 @@ use alloc::format;
 use defmt::{error, info};
 use embassy_executor::Spawner;
 use embassy_net::Stack;
-use embassy_time::Duration;
+use embassy_time::{Duration, Timer};
 use esp_alloc as _;
+use esp_hal::system::software_reset;
 use picoserve::{
     AppBuilder, AppRouter, Router,
     extract::JsonWithUnescapeBufferSize,
@@ -229,8 +230,9 @@ async fn post_wifi_credentials_and_restart(
     .await
     .map_err(|e| Error::new(format!("Failed to save WiFi credentials: {:?}", e)))?;
 
-    globals::request_reboot();
-    Ok(())
+    info!("Rebooting device due to provisioning request");
+    Timer::after(Duration::from_millis(250)).await;
+    software_reset();
 }
 
 async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult<()> {

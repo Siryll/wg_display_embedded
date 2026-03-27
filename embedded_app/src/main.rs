@@ -16,7 +16,6 @@ use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::system::Stack as CoreStack;
-use esp_hal::system::software_reset;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println as _;
 use esp_rtos::embassy::Executor;
@@ -127,8 +126,8 @@ async fn main(spawner: Spawner) -> ! {
     );
 
     Text::new(
-        "Hello ESP32!",
-        Point::new(100, 60),
+        "WG-Display starting up...",
+        Point::new(10, 20),
         MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
     )
     .draw(display.display_mut())
@@ -151,6 +150,15 @@ async fn main(spawner: Spawner) -> ! {
     // start in station mode
     if !force_ap_mode {
         if let (Ok(ssid), Ok(password)) = (ssid, password) {
+            globals::with_display(|display| {
+                Text::new(
+                    "Starting in station mode...",
+                    Point::new(10, 30),
+                    MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
+                )
+                .draw(display.display_mut())
+                .unwrap();
+            }).await;
             let _ =
                 globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
             let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password, false);
@@ -194,6 +202,15 @@ async fn main(spawner: Spawner) -> ! {
             );
         } else {
             info!("WiFi credentials not configured, switching to AP mode");
+            globals::with_display(|display| {
+                Text::new(
+                    "No wifi configured, starting in AP mode",
+                    Point::new(10, 40),
+                    MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
+                )
+                .draw(display.display_mut())
+                .unwrap();
+            }).await;
             let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
             let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
             globals::init_network(wifi.stack(), wifi.tls_seed());
@@ -203,6 +220,15 @@ async fn main(spawner: Spawner) -> ! {
         }
     } else {
         info!("WiFi mode is set to AP, starting in AP mode");
+        globals::with_display(|display| {
+                Text::new(
+                    "No wifi configured, starting in AP mode",
+                    Point::new(10, 30),
+                    MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
+                )
+                .draw(display.display_mut())
+                .unwrap();
+            }).await;
         let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
         globals::init_network(wifi.stack(), wifi.tls_seed());
 
@@ -214,12 +240,6 @@ async fn main(spawner: Spawner) -> ! {
     let _ = spawner;
 
     loop {
-        if globals::take_reboot_request() {
-            info!("Rebooting device due to provisioning request");
-            Timer::after(Duration::from_millis(250)).await;
-            software_reset();
-        }
-
         // info!("Hello world!");
         Timer::after(Duration::from_secs(10)).await;
     }
