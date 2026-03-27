@@ -14,6 +14,8 @@ use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::text::Text;
 use embedded_graphics_framebuf::FrameBuf;
 
+use alloc::format;
+
 use crate::runtime::Runtime;
 use crate::util::globals;
 
@@ -189,7 +191,12 @@ impl Renderer {
 
         let mut y = FIRST_LINE_Y;
         // TODO add IP to title bar for easier configuration
-        draw_text(&mut framebuffer, "Embedded App", y, &white);
+        let ip_str = globals::with_storage(|storage| {
+            storage
+                .config_get("device_ip")
+                .unwrap_or_else(|_| "IP unknown".to_string())
+        }).await;
+        draw_text(&mut framebuffer, &format!("Embedded App - IP: {}", ip_str), y, &white);
         y += LINE_HEIGHT;
 
         for widget in self.widgets.iter() {

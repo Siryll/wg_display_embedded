@@ -42,15 +42,8 @@ mod http_client;
 
 mod http_server;
 
+use crate::alloc::string::ToString;
 use crate::util::esptime::EspTime;
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::{Point, RgbColor};
-use embedded_graphics::{
-    mono_font::{MonoTextStyle, ascii::FONT_8X13},
-    text::Text,
-};
-
-use embedded_graphics::Drawable;
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -125,15 +118,9 @@ async fn main(spawner: Spawner) -> ! {
         peripherals.GPIO48,
     );
 
-    Text::new(
-        "WG-Display starting up...",
-        Point::new(10, 20),
-        MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-    )
-    .draw(display.display_mut())
-    .unwrap();
-
     globals::init_display(display).await;
+
+    globals::console_println("WG-Display starting up").await;
 
     // -- Wifi setup --
     let ssid = globals::with_storage(|storage| storage.config_get("ssid")).await;
@@ -150,19 +137,11 @@ async fn main(spawner: Spawner) -> ! {
     // start in station mode
     if !force_ap_mode {
         if let (Ok(ssid), Ok(password)) = (ssid, password) {
-            globals::with_display(|display| {
-                Text::new(
-                    "Starting in station mode...",
-                    Point::new(10, 30),
-                    MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-                )
-                .draw(display.display_mut())
-                .unwrap();
-            }).await;
-            let _ =
-                globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
+            globals::console_println("Starting in station mode...").await;
+            let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
             let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password, false);
-            wifi.wait_for_connection().await;
+            let ip =wifi.wait_for_connection().await;
+            globals::with_storage(|storage| storage.config_set("device_ip", &ip.to_string())).await;
             globals::init_network(wifi.stack(), wifi.tls_seed());
 
             // -- Server setup --
@@ -202,38 +181,24 @@ async fn main(spawner: Spawner) -> ! {
             );
         } else {
             info!("WiFi credentials not configured, switching to AP mode");
-            globals::with_display(|display| {
-                Text::new(
-                    "No wifi configured, starting in AP mode",
-                    Point::new(10, 40),
-                    MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-                )
-                .draw(display.display_mut())
-                .unwrap();
-            }).await;
+            globals::console_println("No wifi configured, starting in AP mode").await;
             let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
             let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
             globals::init_network(wifi.stack(), wifi.tls_seed());
 
             // -- Server setup --
             http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+            globals::console_println("Open 192.168.2.1 when connected to WG-Display-AP").await;
         }
     } else {
         info!("WiFi mode is set to AP, starting in AP mode");
-        globals::with_display(|display| {
-                Text::new(
-                    "No wifi configured, starting in AP mode",
-                    Point::new(10, 30),
-                    MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-                )
-                .draw(display.display_mut())
-                .unwrap();
-            }).await;
+        globals::console_println("Starting in AP mode...").await;
         let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
         globals::init_network(wifi.stack(), wifi.tls_seed());
 
         // -- Server setup --
         http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+        globals::console_println("Open 192.168.2.1 when connected to WG-Display-AP").await;
     }
 
     // TODO: Spawn some tasks

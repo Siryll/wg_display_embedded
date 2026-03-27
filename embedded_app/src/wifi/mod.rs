@@ -1,7 +1,8 @@
 use crate::util::globals;
 use core::net::Ipv4Addr;
 use core::str::FromStr;
-use defmt::{debug, info, warn};
+use alloc::string::ToString;
+use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
 use embassy_time::{Duration, Timer};
@@ -9,18 +10,9 @@ use esp_alloc as _;
 use esp_hal::rng::Rng;
 use esp_hal::system::software_reset;
 use esp_radio::wifi::{
-    AccessPointConfig, ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice, WifiEvent,
+    AccessPointConfig, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent,
     WifiStaState,
 };
-
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::{Point, RgbColor};
-use embedded_graphics::{
-    mono_font::{MonoTextStyle, ascii::FONT_8X13},
-    text::Text,
-};
-
-use embedded_graphics::Drawable;
 
 const AP_GATEWAY_IP: &str = "192.168.2.1";
 const MAX_STATION_CONNECT_RETRIES: u8 = 8;
@@ -69,7 +61,7 @@ impl Wifi {
             // Access Point mode
             (
                 interfaces.ap,
-                ModeConfig::AccessPoint(AccessPointConfig::default().with_ssid(ssid.clone())),
+                ModeConfig::AccessPoint(AccessPointConfig::default().with_ssid("WG Display AP".to_string())),
                 embassy_net::Config::ipv4_static(StaticConfigV4 {
                     address: Ipv4Cidr::new(Ipv4Addr::new(192, 168, 2, 1), 24),
                     gateway: Some(Ipv4Addr::new(192, 168, 2, 1)),
@@ -123,7 +115,7 @@ impl Wifi {
         self.tls_seed
     }
 
-    pub async fn wait_for_connection(&self) {
+    pub async fn wait_for_connection(&self) -> Ipv4Cidr {
         info!("Waiting for link to be up");
         loop {
             if self.stack.is_link_up() {
@@ -136,7 +128,7 @@ impl Wifi {
         loop {
             if let Some(config) = self.stack.config_v4() {
                 info!("Got IP: {}", config.address);
-                break;
+                return config.address;
             }
             Timer::after(Duration::from_millis(500)).await;
         }
@@ -162,15 +154,7 @@ async fn connection(mut controller: WifiController<'static>) {
         }
         info!("About to connect...");
 
-        globals::with_display(|display| {
-            Text::new(
-                "Connecting to WiFi",
-                Point::new(10, 40),
-                MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-            )
-            .draw(display.display_mut())
-            .unwrap();
-        }).await;
+        globals::console_println("Connecting to WiFi...").await;
 
         match controller.connect_async().await {
             Ok(_) => {
@@ -187,15 +171,7 @@ async fn connection(mut controller: WifiController<'static>) {
                         MAX_STATION_CONNECT_RETRIES
                     );
 
-                    globals::with_display(|display| {
-                        Text::new(
-                            "Failed to connect, rebooting in AP mode",
-                            Point::new(10, 50),
-                            MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-                        )
-                        .draw(display.display_mut())
-                        .unwrap();
-                    }).await;
+                    globals::console_println("Failed to connect, rebooting in AP mode").await;
 
                     let mode_set =
                         globals::with_storage(|storage| storage.config_set("wifi_mode", "ap"))

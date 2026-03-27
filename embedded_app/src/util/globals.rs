@@ -62,6 +62,10 @@ where
     f(display)
 }
 
+pub async fn console_println(text: &str) {
+    with_display(|display| display.console_println(text)).await;
+}
+
 pub fn init_network(stack: Stack<'static>, tls_seed: u64) {
     unsafe {
         NETWORK_STACK = Some(stack);
