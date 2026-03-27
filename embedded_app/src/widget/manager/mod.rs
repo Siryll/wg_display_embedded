@@ -5,6 +5,7 @@ use crate::runtime::Runtime;
 use crate::runtime::http_sync::{self, BridgeMethod};
 use crate::storage::StorageError;
 use crate::util::globals;
+use defmt::error;
 
 #[derive(Debug, defmt::Format)]
 pub enum WidgetManagerError {
@@ -54,34 +55,25 @@ impl WidgetManager {
         .await
         .map_err(|_| WidgetManagerError::HttpError("HTTP bridge request failed"))?;
 
-        // TODO: runtime now ready, now needs repo widget template for embedded version
         let mut runtime = Runtime::new();
-        let module = unsafe { runtime.load_module(&response.bytes) }
-            .map_err(|_| WidgetManagerError::WasmError("Failed to load WASM module"))?;
-        let widget = runtime
-            .instantiate(&module)
-            .map_err(|_| WidgetManagerError::WasmError("Failed to instantiate component"))?;
-        let widget_name = runtime
-            .get_widget_name(&widget)
-            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget name"))?;
-        let version = runtime
-            .get_widget_version(&widget)
-            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget version"))?;
-        let update_cycle_seconds = runtime.get_run_update_cycle_seconds(&widget).map_err(|_| {
-            WidgetManagerError::WasmError("Failed to get widget update cycle seconds")
-        })?;
-        // let widget_name = "example_widget";
-        // let version = "0.1.0";
-        let json_config = "{}";
+
+        let widget_metadata_result = unsafe { runtime.get_widget_metadata(&response.bytes).await };
+
+        let mut widget_metadata = match widget_metadata_result {
+            Ok(config) => config,
+            Err(_) => {
+                error!("Failed to get config schema for '{}'", download_url);
+                return Err(WidgetManagerError::WasmError(
+                    "Failed to get widget config schema",
+                ));
+            }
+        };
+        widget_metadata.description = String::from(description);
 
         // simplify storage by just having one call that handles everything
         globals::with_storage(|storage| {
             storage.save_compiled_widget(
-                widget_name.as_str(),
-                description,
-                version.as_str(),
-                json_config,
-                update_cycle_seconds,
+                widget_metadata,
                 &response.bytes,
             )
         })

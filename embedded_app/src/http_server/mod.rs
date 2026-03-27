@@ -283,45 +283,17 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> HandlerResult<(
 async fn get_config_schema(
     widget_name: alloc::string::String,
 ) -> HandlerResult<JsonStringResponse> {
-    let mut runtime = Runtime::new();
-    let widget_binary = match globals::with_storage(|storage| storage.wasm_read(&widget_name)).await
-    {
-        Ok(binary) => binary,
-        Err(err) => {
-            error!(
-                "Failed to read widget binary for '{}': {:?}",
-                widget_name.as_str(),
-                err
-            );
-            return Err(Error::new(format!("Widget '{}' not found", widget_name)));
-        }
-    };
+    let system_config = globals::with_storage(|storage| storage.get_system_config())
+        .await
+        .map_err(|e| Error::new(format!("Failed to get system config: {:?}", e)))?;
 
-    let config = unsafe {
-        let component = match runtime.load_module(&widget_binary) {
-            Ok(component) => component,
-            Err(_) => {
-                error!("Failed to load WASM module for '{}'", widget_name.as_str());
-                return Err(Error::new("Failed to load WASM module"));
-            }
-        };
+    let widget = system_config
+        .widgets
+        .iter()
+        .find(|w| w.name == widget_name.as_str())
+        .ok_or_else(|| Error::new(format!("Widget '{}' not found", widget_name.as_str())))?;
 
-        let widget = match runtime.instantiate(&component) {
-            Ok(widget) => widget,
-            Err(_) => {
-                error!("Failed to instantiate widget '{}'", widget_name.as_str());
-                return Err(Error::new("Failed to instantiate widget"));
-            }
-        };
-
-        match runtime.get_config_schema(&widget) {
-            Ok(config) => config,
-            Err(_) => {
-                error!("Failed to get config schema for '{}'", widget_name.as_str());
-                return Err(Error::new("Failed to get widget config schema"));
-            }
-        }
-    };
+    let config = widget.json_config_schema.clone();
 
     serde_json::from_str::<serde_json::Value>(&config)
         .map_err(|_| Error::new("Widget config schema is not valid JSON"))?;

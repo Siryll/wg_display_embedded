@@ -44,6 +44,8 @@ pub struct Renderer {
     widgets: Vec<WasmWidget>,
     framebuffer: Box<[Rgb565; DISPLAY_PIXELS]>,
     background_color: Rgb565,
+    runtime: Runtime,
+    ip_address: String,
 }
 
 impl Renderer {
@@ -52,6 +54,8 @@ impl Renderer {
             widgets: Vec::new(),
             framebuffer: Box::new([Rgb565::BLACK; DISPLAY_PIXELS]),
             background_color: Rgb565::BLACK,
+            runtime: Runtime::new(),
+            ip_address: "IP unknown".to_string(),
         }
     }
 
@@ -75,6 +79,14 @@ impl Renderer {
     }
 
     pub async fn run(&mut self) {
+
+        self.ip_address = globals::with_storage(|storage| {
+            storage
+                .config_get("device_ip")
+                .unwrap_or_else(|_| "IP unknown".to_string())
+        })
+        .await;
+
         let mut config = globals::with_storage(|storage| {
             let config = storage.get_system_config();
             match config {
@@ -124,48 +136,9 @@ impl Renderer {
 
             widget.last_run = Some(now);
 
-            let wasm_bytes =
-                match globals::with_storage(|s| s.wasm_read(widget.name.as_str())).await {
-                    Ok(bytes) => bytes,
-                    Err(err) => {
-                        widget.last_output = "Widget binary missing".to_string();
-                        warn!(
-                            "Could not read widget '{}': {:?}",
-                            widget.name.as_str(),
-                            err
-                        );
-                        continue;
-                    }
-                };
+            let widget_result = unsafe { self.runtime.run_widget(widget.name.clone(), widget.config_json.clone()).await };
 
-            let mut runtime = Runtime::new();
-            let component = match unsafe { runtime.load_module(&wasm_bytes) } {
-                Ok(c) => c,
-                Err(err) => {
-                    widget.last_output = "Widget component invalid".to_string();
-                    error!(
-                        "Could not deserialize widget '{}': {:?}",
-                        widget.name.as_str(),
-                        defmt::Debug2Format(&err)
-                    );
-                    continue;
-                }
-            };
-
-            let instance = match runtime.instantiate(&component) {
-                Ok(i) => i,
-                Err(err) => {
-                    widget.last_output = "Widget instantiate failed".to_string();
-                    error!(
-                        "Could not instantiate widget '{}': {:?}",
-                        widget.name.as_str(),
-                        defmt::Debug2Format(&err)
-                    );
-                    continue;
-                }
-            };
-
-            widget.last_output = match runtime.run(&instance, widget.config_json.clone()) {
+            widget.last_output = match widget_result {
                 Ok(Some(result)) => result.data,
                 Ok(None) => "No output".to_string(),
                 Err(err) => {
@@ -194,15 +167,9 @@ impl Renderer {
             .draw(&mut fb)
             .ok();
 
-        let ip_str = globals::with_storage(|storage| {
-            storage
-                .config_get("device_ip")
-                .unwrap_or_else(|_| "IP unknown".to_string())
-        })
-        .await;
 
         let header_style = MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE);
-        draw_text(&mut fb, &format!("WG Display  {}", ip_str), 4, HEADER_HEIGHT - 4, &header_style);
+        draw_text(&mut fb, &format!("WG Display  {}", self.ip_address), 4, HEADER_HEIGHT - 4, &header_style);
 
         // Cyan divider under header
         Line::new(
