@@ -1,12 +1,12 @@
 use alloc::boxed::Box;
 use defmt::info;
+use embedded_graphics::Drawable;
 use embedded_graphics::draw_target::DrawTarget;
-use embedded_graphics::mono_font::iso_8859_1::FONT_8X13;
 use embedded_graphics::mono_font::MonoTextStyle;
+use embedded_graphics::mono_font::iso_8859_1::FONT_8X13;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::text::Text;
-use embedded_graphics::Drawable;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::DriveMode;
@@ -116,7 +116,10 @@ impl Display {
 
         info!("Display initialized successfully");
 
-        Self { display, console_y: CONSOLE_INITIAL_Y }
+        Self {
+            display,
+            console_y: CONSOLE_INITIAL_Y,
+        }
     }
 
     pub fn display_mut(&mut self) -> &mut MyDisplay {

@@ -72,10 +72,7 @@ impl WidgetManager {
 
         // simplify storage by just having one call that handles everything
         globals::with_storage(|storage| {
-            storage.save_compiled_widget(
-                widget_metadata,
-                &response.bytes,
-            )
+            storage.save_compiled_widget(widget_metadata, &response.bytes)
         })
         .await?;
         Ok(())

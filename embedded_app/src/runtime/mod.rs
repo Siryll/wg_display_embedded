@@ -10,7 +10,7 @@ use wasmtime::{Config, Engine, Precompiled, Result, Store};
 
 use alloc::string::{String, ToString};
 
-use crate::runtime::widget::widget::types::{Datetime};
+use crate::runtime::widget::widget::types::Datetime;
 
 use crate::globals;
 
@@ -160,13 +160,14 @@ impl Runtime {
         name: String,
     ) -> wasmtime::Result<Option<WidgetResult>> {
         defmt::info!("Running widget with config: {}", config.as_str());
-        let last_invocation = *self.last_run.get(name.as_str())
-        .unwrap_or(
-             &globals::now()
-                .unwrap_or(Datetime {
-                seconds: 0,
-                nanoseconds: 0,
-        }));
+        let last_invocation =
+            *self
+                .last_run
+                .get(name.as_str())
+                .unwrap_or(&globals::now().unwrap_or(Datetime {
+                    seconds: 0,
+                    nanoseconds: 0,
+                }));
 
         let context = WidgetContext {
             last_invocation,
@@ -183,8 +184,7 @@ impl Runtime {
 
         self.last_run.insert(
             name,
-            globals::now()
-                .unwrap_or(Datetime {
+            globals::now().unwrap_or(Datetime {
                 seconds: 0,
                 nanoseconds: 0,
             }),
@@ -231,7 +231,11 @@ impl Runtime {
     }
 
     /// Wrapper function for running a widget by name with given json config
-    pub async unsafe fn run_widget(&mut self, widget_name: String, config: String) -> wasmtime::Result<Option<WidgetResult>> {
+    pub async unsafe fn run_widget(
+        &mut self,
+        widget_name: String,
+        config: String,
+    ) -> wasmtime::Result<Option<WidgetResult>> {
         let mut store = Store::new(&self.engine, WidgetState::new());
 
         let wasm_bytes = match globals::with_storage(|s| s.wasm_read(&widget_name)).await {
@@ -247,14 +251,17 @@ impl Runtime {
         };
 
         let component = unsafe { self.load_module(&wasm_bytes)? };
-        let mut instance = self.instantiate(&component, &mut store)?;
-        self.run(&mut instance, config, &mut store, widget_name)
+        let instance = self.instantiate(&component, &mut store)?;
+        self.run(&instance, config, &mut store, widget_name)
     }
 
     /// wrapper function to get all widget metadata with the same store
-    pub async unsafe fn get_widget_metadata(&mut self, bytes: &[u8]) -> wasmtime::Result<WidgetInstallationData> {
+    pub async unsafe fn get_widget_metadata(
+        &mut self,
+        bytes: &[u8],
+    ) -> wasmtime::Result<WidgetInstallationData> {
         let mut store = Store::new(&self.engine, WidgetState::new());
-        let component = unsafe { self.load_module(&bytes)? };
+        let component = unsafe { self.load_module(bytes)? };
         let instance = self.instantiate(&component, &mut store)?;
         let name = self.get_widget_name(&instance, &mut store)?;
         let json_config_schema = self.get_config_schema(&instance, &mut store)?;

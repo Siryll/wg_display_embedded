@@ -3,10 +3,7 @@
 //! Two namespaces used:
 //! - `"config"` — for all config related data. Stores WIFI Name and Password and [`SystemConfiguration`].
 //! - `"wasm"` — precompiled widget WASM binaries, name hashed to fit NVS key length limit with [`Hasher`].
-use crate::runtime::Widget;
-use crate::runtime::widget;
 use crate::util::hasher::Hasher;
-use alloc::string::ToString;
 use common::models::{SystemConfiguration, WidgetInstallationData};
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;

@@ -115,5 +115,3 @@ where
 pub fn now() -> Option<Datetime> {
     with_time(EspTime::now)
 }
-
-

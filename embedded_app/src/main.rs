@@ -12,19 +12,15 @@
 use defmt::error;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_time::WithTimeout;
 use embassy_time::{Duration, Timer};
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::DrawTarget;
-use embedded_graphics::prelude::RgbColor;
 use esp_hal::clock::CpuClock;
 use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::system::Stack as CoreStack;
+use esp_hal::system::software_reset;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println as _;
 use esp_rtos::embassy::Executor;
 use static_cell::StaticCell;
-use esp_hal::system::software_reset;
 
 mod wifi;
 use crate::wifi::Wifi;
@@ -141,10 +137,13 @@ async fn main(spawner: Spawner) -> ! {
     if !force_ap_mode {
         if let (Ok(ssid), Ok(password)) = (ssid, password) {
             globals::console_println("Starting in station mode").await;
-            let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
+            let _ =
+                globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
             let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password, false);
-            let ip =wifi.wait_for_connection().await;
-            let _ = globals::with_storage(|storage| storage.config_set("device_ip", &ip.to_string())).await;
+            let ip = wifi.wait_for_connection().await;
+            let _ =
+                globals::with_storage(|storage| storage.config_set("device_ip", &ip.to_string()))
+                    .await;
             globals::init_network(wifi.stack(), wifi.tls_seed());
 
             // -- Server setup --
@@ -203,7 +202,7 @@ async fn main(spawner: Spawner) -> ! {
         // -- Server setup --
         http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
         globals::console_println("Connect to 'WG-Display-AP'").await;
-            globals::console_println("and open 192.168.2.1").await;
+        globals::console_println("and open 192.168.2.1").await;
     }
 
     // TODO: Spawn some tasks

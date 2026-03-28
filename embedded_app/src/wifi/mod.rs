@@ -1,7 +1,7 @@
 use crate::util::globals;
+use alloc::string::ToString;
 use core::net::Ipv4Addr;
 use core::str::FromStr;
-use alloc::string::ToString;
 use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
@@ -61,7 +61,9 @@ impl Wifi {
             // Access Point mode
             (
                 interfaces.ap,
-                ModeConfig::AccessPoint(AccessPointConfig::default().with_ssid("WG Display AP".to_string())),
+                ModeConfig::AccessPoint(
+                    AccessPointConfig::default().with_ssid("WG Display AP".to_string()),
+                ),
                 embassy_net::Config::ipv4_static(StaticConfigV4 {
                     address: Ipv4Cidr::new(Ipv4Addr::new(192, 168, 2, 1), 24),
                     gateway: Some(Ipv4Addr::new(192, 168, 2, 1)),

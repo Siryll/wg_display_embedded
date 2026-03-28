@@ -25,14 +25,8 @@ use custom_types::{ConfigWrapper, Error, HandlerResult, HtmlResponse, JsonString
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
 const HTTP_BUFFER_SIZE: usize = 16384;
-const INDEX_CACHE_HEADER: (&str, &str) = (
-    "Cache-Control",
-    "no-cache, no-store, must-revalidate",
-);
-const ASSET_HEADER: (&str, &str) = (
-    "Cache-Control",
-    "no-cache, must-revalidate",
-);
+const INDEX_CACHE_HEADER: (&str, &str) = ("Cache-Control", "no-cache, no-store, must-revalidate");
+const ASSET_HEADER: (&str, &str) = ("Cache-Control", "no-cache, must-revalidate");
 
 pub struct Application;
 
@@ -44,10 +38,7 @@ impl AppBuilder for Application {
             .route("/get_store_items", routing::get(get_store_items))
             .route("/install_widget", routing::post(post_install_widget))
             .route("/wifi_mode", routing::get(get_wifi_mode))
-            .route(
-                "/wifi_credentials",
-                routing::post(post_wifi_credentials),
-            )
+            .route("/wifi_credentials", routing::post(post_wifi_credentials))
             .route(
                 "/system_config",
                 routing::get(get_system_config).post(post_system_config),
@@ -219,9 +210,7 @@ async fn get_wifi_mode() -> HandlerResult<Json<WifiModeResponse>> {
     }))
 }
 
-async fn post_wifi_credentials(
-    Json(credentials): Json<WifiCredentials>,
-) -> HandlerResult<()> {
+async fn post_wifi_credentials(Json(credentials): Json<WifiCredentials>) -> HandlerResult<()> {
     let ssid = credentials.ssid;
     let password = credentials.password;
 

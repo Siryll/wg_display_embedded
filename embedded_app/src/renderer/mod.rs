@@ -7,11 +7,11 @@ use defmt::{error, info};
 use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::Drawable;
 use embedded_graphics::draw_target::DrawTarget;
+use embedded_graphics::geometry::Size;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::mono_font::iso_8859_1::FONT_8X13;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
-use embedded_graphics::geometry::Size;
 use embedded_graphics::primitives::{Line, Primitive, PrimitiveStyle, Rectangle};
 use embedded_graphics::text::Text;
 use embedded_graphics_framebuf::FrameBuf;
@@ -79,7 +79,6 @@ impl Renderer {
     }
 
     pub async fn run(&mut self) {
-
         self.ip_address = globals::with_storage(|storage| {
             storage
                 .config_get("device_ip")
@@ -136,7 +135,11 @@ impl Renderer {
 
             widget.last_run = Some(now);
 
-            let widget_result = unsafe { self.runtime.run_widget(widget.name.clone(), widget.config_json.clone()).await };
+            let widget_result = unsafe {
+                self.runtime
+                    .run_widget(widget.name.clone(), widget.config_json.clone())
+                    .await
+            };
 
             widget.last_output = match widget_result {
                 Ok(Some(result)) => result.data,
@@ -162,14 +165,22 @@ impl Renderer {
         let _ = fb.clear(self.background_color);
 
         // header bar
-        Rectangle::new(Point::new(0, 0), Size::new(DISPLAY_WIDTH, HEADER_HEIGHT as u32))
-            .into_styled(PrimitiveStyle::with_fill(Rgb565::new(1, 8, 16)))
-            .draw(&mut fb)
-            .ok();
-
+        Rectangle::new(
+            Point::new(0, 0),
+            Size::new(DISPLAY_WIDTH, HEADER_HEIGHT as u32),
+        )
+        .into_styled(PrimitiveStyle::with_fill(Rgb565::new(1, 8, 16)))
+        .draw(&mut fb)
+        .ok();
 
         let header_style = MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE);
-        draw_text(&mut fb, &format!("WG Display  {}", self.ip_address), 4, HEADER_HEIGHT - 4, &header_style);
+        draw_text(
+            &mut fb,
+            &format!("WG Display  {}", self.ip_address),
+            4,
+            HEADER_HEIGHT - 4,
+            &header_style,
+        );
 
         // divider
         Line::new(
