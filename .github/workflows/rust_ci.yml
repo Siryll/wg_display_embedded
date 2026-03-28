@@ -40,10 +40,17 @@ jobs:
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: rust-ci-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           workspaces: |
             embedded_app
             common
             frontend
+      - name: Setup Node.js with npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Install espflash
         run: cargo install espflash --locked
       - name: Setup frontend build dependencies

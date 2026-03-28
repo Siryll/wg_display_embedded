@@ -3,16 +3,20 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use common::models::SystemConfiguration;
-use defmt::{error, info, warn};
+use defmt::{error, info};
 use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::Drawable;
 use embedded_graphics::draw_target::DrawTarget;
+use embedded_graphics::geometry::Size;
 use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::mono_font::ascii::FONT_8X13;
+use embedded_graphics::mono_font::iso_8859_1::FONT_8X13;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
+use embedded_graphics::primitives::{Line, Primitive, PrimitiveStyle, Rectangle};
 use embedded_graphics::text::Text;
 use embedded_graphics_framebuf::FrameBuf;
+
+use alloc::format;
 
 use crate::runtime::Runtime;
 use crate::util::globals;
@@ -22,9 +26,11 @@ const DISPLAY_WIDTH: u32 = 320;
 const DISPLAY_HEIGHT: u32 = 240;
 const DISPLAY_PIXELS: usize = (DISPLAY_WIDTH as usize) * (DISPLAY_HEIGHT as usize);
 const DISPLAY_WIDTH_CHARS: usize = 39;
-const LEFT_PADDING: i32 = 4;
+const HEADER_HEIGHT: i32 = 18;
+const ACCENT_WIDTH: i32 = 3;
+const LEFT_PADDING: i32 = ACCENT_WIDTH + 5;
 const LINE_HEIGHT: i32 = 14;
-const FIRST_LINE_Y: i32 = 14;
+const WIDGET_GAP: i32 = 6; // vertical space between widgets
 
 struct WasmWidget {
     name: String,
@@ -38,6 +44,8 @@ pub struct Renderer {
     widgets: Vec<WasmWidget>,
     framebuffer: Box<[Rgb565; DISPLAY_PIXELS]>,
     background_color: Rgb565,
+    runtime: Runtime,
+    ip_address: String,
 }
 
 impl Renderer {
@@ -46,6 +54,8 @@ impl Renderer {
             widgets: Vec::new(),
             framebuffer: Box::new([Rgb565::BLACK; DISPLAY_PIXELS]),
             background_color: Rgb565::BLACK,
+            runtime: Runtime::new(),
+            ip_address: "IP unknown".to_string(),
         }
     }
 
@@ -69,6 +79,13 @@ impl Renderer {
     }
 
     pub async fn run(&mut self) {
+        self.ip_address = globals::with_storage(|storage| {
+            storage
+                .config_get("device_ip")
+                .unwrap_or_else(|_| "IP unknown".to_string())
+        })
+        .await;
+
         let mut config = globals::with_storage(|storage| {
             let config = storage.get_system_config();
             match config {
@@ -118,48 +135,13 @@ impl Renderer {
 
             widget.last_run = Some(now);
 
-            let wasm_bytes =
-                match globals::with_storage(|s| s.wasm_read(widget.name.as_str())).await {
-                    Ok(bytes) => bytes,
-                    Err(err) => {
-                        widget.last_output = "Widget binary missing".to_string();
-                        warn!(
-                            "Could not read widget '{}': {:?}",
-                            widget.name.as_str(),
-                            err
-                        );
-                        continue;
-                    }
-                };
-
-            let mut runtime = Runtime::new();
-            let component = match unsafe { runtime.load_module(&wasm_bytes) } {
-                Ok(c) => c,
-                Err(err) => {
-                    widget.last_output = "Widget component invalid".to_string();
-                    error!(
-                        "Could not deserialize widget '{}': {:?}",
-                        widget.name.as_str(),
-                        defmt::Debug2Format(&err)
-                    );
-                    continue;
-                }
+            let widget_result = unsafe {
+                self.runtime
+                    .run_widget(widget.name.clone(), widget.config_json.clone())
+                    .await
             };
 
-            let instance = match runtime.instantiate(&component) {
-                Ok(i) => i,
-                Err(err) => {
-                    widget.last_output = "Widget instantiate failed".to_string();
-                    error!(
-                        "Could not instantiate widget '{}': {:?}",
-                        widget.name.as_str(),
-                        defmt::Debug2Format(&err)
-                    );
-                    continue;
-                }
-            };
-
-            widget.last_output = match runtime.run(&instance, widget.config_json.clone()) {
+            widget.last_output = match widget_result {
                 Ok(Some(result)) => result.data,
                 Ok(None) => "No output".to_string(),
                 Err(err) => {
@@ -175,39 +157,89 @@ impl Renderer {
     }
 
     async fn render_layout(&mut self) {
-        let mut framebuffer = FrameBuf::new(
+        let mut fb = FrameBuf::new(
             self.framebuffer.as_mut(),
             DISPLAY_WIDTH as usize,
             DISPLAY_HEIGHT as usize,
         );
+        let _ = fb.clear(self.background_color);
 
-        let _ = framebuffer.clear(self.background_color);
+        // header bar
+        Rectangle::new(
+            Point::new(0, 0),
+            Size::new(DISPLAY_WIDTH, HEADER_HEIGHT as u32),
+        )
+        .into_styled(PrimitiveStyle::with_fill(Rgb565::new(1, 8, 16)))
+        .draw(&mut fb)
+        .ok();
 
-        let white = MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE);
-        let cyan = MonoTextStyle::new(&FONT_8X13, Rgb565::CYAN);
-        let yellow = MonoTextStyle::new(&FONT_8X13, Rgb565::YELLOW);
+        let header_style = MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE);
+        draw_text(
+            &mut fb,
+            &format!("WG Display  {}", self.ip_address),
+            4,
+            HEADER_HEIGHT - 4,
+            &header_style,
+        );
 
-        let mut y = FIRST_LINE_Y;
-        // TODO add IP to title bar for easier configuration
-        draw_text(&mut framebuffer, "Embedded App", y, &white);
-        y += LINE_HEIGHT;
+        // divider
+        Line::new(
+            Point::new(0, HEADER_HEIGHT),
+            Point::new(DISPLAY_WIDTH as i32 - 1, HEADER_HEIGHT),
+        )
+        .into_styled(PrimitiveStyle::with_stroke(Rgb565::CYAN, 1))
+        .draw(&mut fb)
+        .ok();
 
-        for widget in self.widgets.iter() {
+        // widgets
+        let name_style = MonoTextStyle::new(&FONT_8X13, Rgb565::CYAN);
+        let output_style = MonoTextStyle::new(&FONT_8X13, Rgb565::YELLOW);
+
+        let mut y = HEADER_HEIGHT + LINE_HEIGHT + 2;
+        let widget_count = self.widgets.len();
+
+        for (i, widget) in self.widgets.iter().enumerate() {
+            // stop if no space left on screen
             if y >= DISPLAY_HEIGHT as i32 {
                 break;
             }
-            draw_text(&mut framebuffer, &widget.name, y, &cyan);
+
+            // accent bar
+            Rectangle::new(Point::new(0, y - 11), Size::new(ACCENT_WIDTH as u32, 13))
+                .into_styled(PrimitiveStyle::with_fill(Rgb565::CYAN))
+                .draw(&mut fb)
+                .ok();
+
+            // widget name
+            draw_text(&mut fb, &widget.name, LEFT_PADDING, y, &name_style);
             y += LINE_HEIGHT;
 
             if y >= DISPLAY_HEIGHT as i32 {
                 break;
             }
+
+            // draw each output line of widget
             for line in widget.last_output.lines() {
-                draw_text(&mut framebuffer, line, y, &yellow);
-                y += LINE_HEIGHT;
                 if y >= DISPLAY_HEIGHT as i32 {
                     break;
                 }
+                draw_text(&mut fb, line, LEFT_PADDING, y, &output_style);
+                y += LINE_HEIGHT;
+            }
+
+            // thin separator between widgets
+            if i + 1 < widget_count {
+                let sep_y = y - LINE_HEIGHT + 6; // = y - 8: below last output, above next title
+                if sep_y > HEADER_HEIGHT && sep_y < DISPLAY_HEIGHT as i32 {
+                    Line::new(
+                        Point::new(LEFT_PADDING, sep_y),
+                        Point::new(DISPLAY_WIDTH as i32 - LEFT_PADDING, sep_y),
+                    )
+                    .into_styled(PrimitiveStyle::with_stroke(Rgb565::new(4, 8, 4), 1))
+                    .draw(&mut fb)
+                    .ok();
+                }
+                y += WIDGET_GAP;
             }
         }
 
@@ -241,7 +273,7 @@ fn parse_background_color(color: &str) -> Rgb565 {
     }
 }
 
-fn draw_text<T>(target: &mut T, text: &str, y: i32, style: &MonoTextStyle<'_, Rgb565>)
+fn draw_text<T>(target: &mut T, text: &str, x: i32, y: i32, style: &MonoTextStyle<'_, Rgb565>)
 where
     T: DrawTarget<Color = Rgb565>,
 {
@@ -255,5 +287,5 @@ where
     } else {
         text.to_string()
     };
-    let _ = Text::new(&truncated, Point::new(LEFT_PADDING, y), *style).draw(target);
+    let _ = Text::new(&truncated, Point::new(x, y), *style).draw(target);
 }

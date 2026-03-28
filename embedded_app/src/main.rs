@@ -43,15 +43,8 @@ mod http_client;
 
 mod http_server;
 
+use crate::alloc::string::ToString;
 use crate::util::esptime::EspTime;
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::{Point, RgbColor};
-use embedded_graphics::{
-    mono_font::{MonoTextStyle, ascii::FONT_8X13},
-    text::Text,
-};
-
-use embedded_graphics::Drawable;
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -67,9 +60,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     esp_println::println!("panic info: {}", info);
 
-    loop {
-        core::hint::spin_loop();
-    }
+    software_reset();
 }
 
 extern crate alloc;
@@ -115,7 +106,7 @@ async fn main(spawner: Spawner) -> ! {
     // }).await;
 
     // -- Display setup --
-    let mut display = Display::new(
+    let display = Display::new(
         peripherals.SPI2,
         peripherals.DMA_CH0,
         peripherals.GPIO4,
@@ -126,15 +117,9 @@ async fn main(spawner: Spawner) -> ! {
         peripherals.GPIO48,
     );
 
-    Text::new(
-        "Hello ESP32!",
-        Point::new(100, 60),
-        MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE),
-    )
-    .draw(display.display_mut())
-    .unwrap();
-
     globals::init_display(display).await;
+
+    globals::console_println("WG-Display starting up").await;
 
     // -- Wifi setup --
     let ssid = globals::with_storage(|storage| storage.config_get("ssid")).await;
@@ -151,10 +136,14 @@ async fn main(spawner: Spawner) -> ! {
     // start in station mode
     if !force_ap_mode {
         if let (Ok(ssid), Ok(password)) = (ssid, password) {
+            globals::console_println("Starting in station mode").await;
             let _ =
                 globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
             let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password, false);
-            wifi.wait_for_connection().await;
+            let ip = wifi.wait_for_connection().await;
+            let _ =
+                globals::with_storage(|storage| storage.config_set("device_ip", &ip.to_string()))
+                    .await;
             globals::init_network(wifi.stack(), wifi.tls_seed());
 
             // -- Server setup --
@@ -194,40 +183,37 @@ async fn main(spawner: Spawner) -> ! {
             );
         } else {
             info!("WiFi credentials not configured, switching to AP mode");
+            globals::console_println("No wifi configured, starting in AP mode").await;
             let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
             let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
             globals::init_network(wifi.stack(), wifi.tls_seed());
 
             // -- Server setup --
             http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+            globals::console_println("Connect to 'WG-Display-AP'").await;
+            globals::console_println("and open 192.168.2.1").await;
         }
     } else {
         info!("WiFi mode is set to AP, starting in AP mode");
+        globals::console_println("Starting in AP mode").await;
         let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
         globals::init_network(wifi.stack(), wifi.tls_seed());
 
         // -- Server setup --
         http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
+        globals::console_println("Connect to 'WG-Display-AP'").await;
+        globals::console_println("and open 192.168.2.1").await;
     }
 
     // TODO: Spawn some tasks
-    let _ = spawner;
+    // let _ = spawner;
 
     loop {
-        if globals::take_reboot_request() {
-            info!("Rebooting device due to provisioning request");
-            Timer::after(Duration::from_millis(250)).await;
-            software_reset();
-        }
-
-        // info!("Hello world!");
-        Timer::after(Duration::from_secs(10)).await;
+        Timer::after(Duration::from_secs(100)).await;
     }
-
-    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples
 }
 
-// This is a sample function that will be remove in the final version and replaced by the renderer
+/// Renderer task look that is spawned on the second core
 #[embassy_executor::task]
 async fn widget_runner() {
     info!("Widget runner task started");

@@ -2,8 +2,9 @@ use alloc::format;
 use defmt::{error, info};
 use embassy_executor::Spawner;
 use embassy_net::Stack;
-use embassy_time::Duration;
+use embassy_time::{Duration, Timer};
 use esp_alloc as _;
+use esp_hal::system::software_reset;
 use picoserve::{
     AppBuilder, AppRouter, Router,
     extract::JsonWithUnescapeBufferSize,
@@ -11,7 +12,6 @@ use picoserve::{
     routing::{self, parse_path_segment},
 };
 
-use crate::runtime::Runtime;
 use crate::widget::manager::WidgetManager;
 use crate::{util::globals, widget::store::WidgetStore};
 use common::models::WidgetStoreItem;
@@ -25,10 +25,8 @@ use custom_types::{ConfigWrapper, Error, HandlerResult, HtmlResponse, JsonString
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
 const HTTP_BUFFER_SIZE: usize = 16384;
-const STATIC_CACHE_HEADER: (&str, &str) = (
-    "Cache-Control",
-    "public, max-age=3600, stale-while-revalidate=86400",
-);
+const INDEX_CACHE_HEADER: (&str, &str) = ("Cache-Control", "no-cache, no-store, must-revalidate");
+const ASSET_HEADER: (&str, &str) = ("Cache-Control", "no-cache, must-revalidate");
 
 pub struct Application;
 
@@ -40,10 +38,7 @@ impl AppBuilder for Application {
             .route("/get_store_items", routing::get(get_store_items))
             .route("/install_widget", routing::post(post_install_widget))
             .route("/wifi_mode", routing::get(get_wifi_mode))
-            .route(
-                "/wifi_credentials/restart",
-                routing::post(post_wifi_credentials_and_restart),
-            )
+            .route("/wifi_credentials", routing::post(post_wifi_credentials))
             .route(
                 "/system_config",
                 routing::get(get_system_config).post(post_system_config),
@@ -81,13 +76,20 @@ impl AppBuilder for Application {
                 routing::get(get_widget_config),
             )
             // routes to serve frontend files
-            .route("/", routing::get_service(File::html(frontend::INDEX_HTML)))
+            .route(
+                "/",
+                routing::get_service(File::with_content_type_and_headers(
+                    "text/html",
+                    frontend::INDEX_HTML.as_bytes(),
+                    &[INDEX_CACHE_HEADER],
+                )),
+            )
             .route(
                 "/frontend.js",
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::FRONTEND_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -95,7 +97,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/wasm",
                     frontend::FRONTEND_WASM_GZ,
-                    &[("Content-Encoding", "gzip"), STATIC_CACHE_HEADER],
+                    &[("Content-Encoding", "gzip"), ASSET_HEADER],
                 )),
             )
             .route(
@@ -103,7 +105,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "text/css",
                     frontend::OUTPUT_CSS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -111,7 +113,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "image/png",
                     frontend::LOGO_PNG,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -119,7 +121,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "text/css",
                     frontend::BOOTSTRAP_CSS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -127,7 +129,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JQUERY_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -135,7 +137,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::UNDERSCORE_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -143,7 +145,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JSONFORM_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -151,7 +153,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JSONFORM_DEFAULTS_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -159,7 +161,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JSONFORM_SPLIT_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -208,9 +210,7 @@ async fn get_wifi_mode() -> HandlerResult<Json<WifiModeResponse>> {
     }))
 }
 
-async fn post_wifi_credentials_and_restart(
-    Json(credentials): Json<WifiCredentials>,
-) -> HandlerResult<()> {
+async fn post_wifi_credentials(Json(credentials): Json<WifiCredentials>) -> HandlerResult<()> {
     let ssid = credentials.ssid;
     let password = credentials.password;
 
@@ -229,8 +229,9 @@ async fn post_wifi_credentials_and_restart(
     .await
     .map_err(|e| Error::new(format!("Failed to save WiFi credentials: {:?}", e)))?;
 
-    globals::request_reboot();
-    Ok(())
+    info!("Rebooting device due to Wifi config change");
+    Timer::after(Duration::from_millis(250)).await;
+    software_reset();
 }
 
 async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult<()> {
@@ -281,45 +282,17 @@ async fn deinstall_widget(widget_name: alloc::string::String) -> HandlerResult<(
 async fn get_config_schema(
     widget_name: alloc::string::String,
 ) -> HandlerResult<JsonStringResponse> {
-    let mut runtime = Runtime::new();
-    let widget_binary = match globals::with_storage(|storage| storage.wasm_read(&widget_name)).await
-    {
-        Ok(binary) => binary,
-        Err(err) => {
-            error!(
-                "Failed to read widget binary for '{}': {:?}",
-                widget_name.as_str(),
-                err
-            );
-            return Err(Error::new(format!("Widget '{}' not found", widget_name)));
-        }
-    };
+    let system_config = globals::with_storage(|storage| storage.get_system_config())
+        .await
+        .map_err(|e| Error::new(format!("Failed to get system config: {:?}", e)))?;
 
-    let config = unsafe {
-        let component = match runtime.load_module(&widget_binary) {
-            Ok(component) => component,
-            Err(_) => {
-                error!("Failed to load WASM module for '{}'", widget_name.as_str());
-                return Err(Error::new("Failed to load WASM module"));
-            }
-        };
+    let widget = system_config
+        .widgets
+        .iter()
+        .find(|w| w.name == widget_name.as_str())
+        .ok_or_else(|| Error::new(format!("Widget '{}' not found", widget_name.as_str())))?;
 
-        let widget = match runtime.instantiate(&component) {
-            Ok(widget) => widget,
-            Err(_) => {
-                error!("Failed to instantiate widget '{}'", widget_name.as_str());
-                return Err(Error::new("Failed to instantiate widget"));
-            }
-        };
-
-        match runtime.get_config_schema(&widget) {
-            Ok(config) => config,
-            Err(_) => {
-                error!("Failed to get config schema for '{}'", widget_name.as_str());
-                return Err(Error::new("Failed to get widget config schema"));
-            }
-        }
-    };
+    let config = widget.json_config_schema.clone();
 
     serde_json::from_str::<serde_json::Value>(&config)
         .map_err(|_| Error::new("Widget config schema is not valid JSON"))?;

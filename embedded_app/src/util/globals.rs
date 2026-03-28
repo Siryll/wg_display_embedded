@@ -1,5 +1,6 @@
 use crate::display::Display;
 use crate::http_client::EspHttpClient;
+use crate::runtime::widget::widget::clocks::Datetime;
 use crate::storage::Storage;
 use crate::util::esptime::EspTime;
 use core::cell::RefCell;
@@ -21,7 +22,6 @@ static mut TLS_SEED: Option<u64> = None;
 static ESP_TIME: CsMutex<RefCell<Option<EspTime>>> = CsMutex::new(RefCell::new(None));
 
 static NETWORK_READY: AtomicBool = AtomicBool::new(false);
-static REBOOT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 pub async fn init_storage(storage: Storage<'static>) {
     let mut guard = STORAGE.lock().await;
@@ -61,6 +61,10 @@ where
         .as_mut()
         .expect("Display not initialized! Call init_display() first");
     f(display)
+}
+
+pub async fn console_println(text: &str) {
+    with_display(|display| display.console_println(text)).await;
 }
 
 pub fn init_network(stack: Stack<'static>, tls_seed: u64) {
@@ -108,15 +112,6 @@ where
     })
 }
 
-pub fn now_parts() -> Option<(u64, u32)> {
-    with_time(EspTime::now_parts)
-}
-
-pub fn request_reboot() {
-    REBOOT_REQUESTED.store(true, Ordering::Release);
-    info!("Reboot requested");
-}
-
-pub fn take_reboot_request() -> bool {
-    REBOOT_REQUESTED.swap(false, Ordering::AcqRel)
+pub fn now() -> Option<Datetime> {
+    with_time(EspTime::now)
 }
