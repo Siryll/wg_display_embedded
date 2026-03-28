@@ -154,7 +154,7 @@ async fn connection(mut controller: WifiController<'static>) {
         }
         info!("About to connect...");
 
-        globals::console_println("Connecting to WiFi...").await;
+        globals::console_println("Connecting to WiFi").await;
 
         match controller.connect_async().await {
             Ok(_) => {

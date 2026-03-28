@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use defmt::info;
 use embedded_graphics::draw_target::DrawTarget;
-use embedded_graphics::mono_font::ascii::FONT_8X13;
+use embedded_graphics::mono_font::iso_8859_1::FONT_8X13;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};

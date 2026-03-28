@@ -3,12 +3,12 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use common::models::SystemConfiguration;
-use defmt::{error, info, warn};
+use defmt::{error, info};
 use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::Drawable;
 use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::mono_font::ascii::FONT_8X13;
+use embedded_graphics::mono_font::iso_8859_1::FONT_8X13;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::geometry::Size;
@@ -28,9 +28,9 @@ const DISPLAY_PIXELS: usize = (DISPLAY_WIDTH as usize) * (DISPLAY_HEIGHT as usiz
 const DISPLAY_WIDTH_CHARS: usize = 39;
 const HEADER_HEIGHT: i32 = 18;
 const ACCENT_WIDTH: i32 = 3;
-const LEFT_PADDING: i32 = ACCENT_WIDTH + 5; // text x start after accent bar + gap
+const LEFT_PADDING: i32 = ACCENT_WIDTH + 5;
 const LINE_HEIGHT: i32 = 14;
-const WIDGET_GAP: i32 = 6; // extra vertical space between widgets (houses the separator)
+const WIDGET_GAP: i32 = 6; // vertical space between widgets
 
 struct WasmWidget {
     name: String,
@@ -161,7 +161,7 @@ impl Renderer {
         );
         let _ = fb.clear(self.background_color);
 
-        // ---- Header bar ----
+        // header bar
         Rectangle::new(Point::new(0, 0), Size::new(DISPLAY_WIDTH, HEADER_HEIGHT as u32))
             .into_styled(PrimitiveStyle::with_fill(Rgb565::new(1, 8, 16)))
             .draw(&mut fb)
@@ -171,7 +171,7 @@ impl Renderer {
         let header_style = MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE);
         draw_text(&mut fb, &format!("WG Display  {}", self.ip_address), 4, HEADER_HEIGHT - 4, &header_style);
 
-        // Cyan divider under header
+        // divider
         Line::new(
             Point::new(0, HEADER_HEIGHT),
             Point::new(DISPLAY_WIDTH as i32 - 1, HEADER_HEIGHT),
@@ -180,7 +180,7 @@ impl Renderer {
         .draw(&mut fb)
         .ok();
 
-        // ---- Widgets ----
+        // widgets
         let name_style = MonoTextStyle::new(&FONT_8X13, Rgb565::CYAN);
         let output_style = MonoTextStyle::new(&FONT_8X13, Rgb565::YELLOW);
 
@@ -188,16 +188,18 @@ impl Renderer {
         let widget_count = self.widgets.len();
 
         for (i, widget) in self.widgets.iter().enumerate() {
+            // stop if no space left on screen
             if y >= DISPLAY_HEIGHT as i32 {
                 break;
             }
 
-            // Accent bar on the left edge of the widget name line
+            // accent bar
             Rectangle::new(Point::new(0, y - 11), Size::new(ACCENT_WIDTH as u32, 13))
                 .into_styled(PrimitiveStyle::with_fill(Rgb565::CYAN))
                 .draw(&mut fb)
                 .ok();
 
+            // widget name
             draw_text(&mut fb, &widget.name, LEFT_PADDING, y, &name_style);
             y += LINE_HEIGHT;
 
@@ -205,6 +207,7 @@ impl Renderer {
                 break;
             }
 
+            // draw each output line of widget
             for line in widget.last_output.lines() {
                 if y >= DISPLAY_HEIGHT as i32 {
                     break;
@@ -213,11 +216,7 @@ impl Renderer {
                 y += LINE_HEIGHT;
             }
 
-            // Thin separator between widgets, placed inside the WIDGET_GAP.
-            // After the output loop, y is at the next name's baseline.
-            // Last output bottom = y - LINE_HEIGHT + 2 = y - 12
-            // With WIDGET_GAP added, next name top = (y + WIDGET_GAP) - 11 = y + 1
-            // sep_y = y - (LINE_HEIGHT - 6) = y - 8 sits between those two bounds.
+            // thin separator between widgets
             if i + 1 < widget_count {
                 let sep_y = y - LINE_HEIGHT + 6; // = y - 8: below last output, above next title
                 if sep_y > HEADER_HEIGHT && sep_y < DISPLAY_HEIGHT as i32 {

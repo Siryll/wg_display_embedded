@@ -1,7 +1,6 @@
 use common::models::{WifiCredentials, WifiModeResponse};
 use gloo_net::http::Request;
-use wasm_bindgen::JsCast;
-use web_sys::{HtmlInputElement, InputEvent};
+use web_sys::{HtmlInputElement, SubmitEvent};
 use yew::prelude::*;
 
 use crate::components::config_card::ConfigCardComponent;
@@ -12,7 +11,7 @@ pub struct WifiCredentialsConfigProps {
 }
 
 async fn save_wifi_credentials_and_restart(payload: WifiCredentials) -> Result<(), String> {
-    let response = Request::post("/wifi_credentials/restart")
+    let response = Request::post("/wifi_credentials")
         .json(&payload)
         .expect("Failed to serialize WiFi credentials")
         .send()
@@ -59,10 +58,9 @@ async fn is_ap_mode() -> Result<bool, String> {
 
 #[function_component(WifiCredentialsConfigComponent)]
 pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> Html {
-    let ssid = use_state(String::new);
-    let password = use_state(String::new);
-    let is_saving = use_state(|| false);
-    let show_form = use_state(|| true);
+    let ssid_ref = use_node_ref();
+    let password_ref = use_node_ref();
+    let show_form = use_state(|| false);
 
     {
         let show_form = show_form.clone();
@@ -74,7 +72,7 @@ pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> 
                         Ok(is_ap) => show_form.set(is_ap),
                         Err(message) => {
                             error.set(Some(message));
-                            show_form.set(true);
+                            show_form.set(false);
                         }
                     }
                 });
@@ -88,50 +86,33 @@ pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> 
         return html! {};
     }
 
-    let on_ssid_input = {
-        let ssid = ssid.clone();
-        Callback::from(move |event: InputEvent| {
-            if let Some(input) = event
-                .target()
-                .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-            {
-                ssid.set(input.value());
-            }
-        })
-    };
-
-    let on_password_input = {
-        let password = password.clone();
-        Callback::from(move |event: InputEvent| {
-            if let Some(input) = event
-                .target()
-                .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-            {
-                password.set(input.value());
-            }
-        })
-    };
-
     let on_save_and_restart = {
-        let ssid = ssid.clone();
-        let password = password.clone();
-        let is_saving = is_saving.clone();
+        let ssid_ref = ssid_ref.clone();
+        let password_ref = password_ref.clone();
         let error = props.error.clone();
-        Callback::from(move |_| {
-            let ssid_value = (*ssid).clone();
-            let password_value = (*password).clone();
+        Callback::from(move |event: SubmitEvent| {
+            event.prevent_default();
+
+            let Some(ssid_input) = ssid_ref.cast::<HtmlInputElement>() else {
+                error.set(Some("SSID input is not available".to_string()));
+                return;
+            };
+            let Some(password_input) = password_ref.cast::<HtmlInputElement>() else {
+                error.set(Some("Password input is not available".to_string()));
+                return;
+            };
+
+            let ssid_value = ssid_input.value();
+            let password_value = password_input.value();
 
             if ssid_value.trim().is_empty() {
                 error.set(Some("SSID must not be empty".to_string()));
                 return;
             }
 
-            is_saving.set(true);
             error.set(None);
 
-            let is_saving = is_saving.clone();
             let error = error.clone();
-            let password = password.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
                 let payload = WifiCredentials {
@@ -139,16 +120,8 @@ pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> 
                     password: password_value,
                 };
 
-                let result = save_wifi_credentials_and_restart(payload).await;
-                is_saving.set(false);
-
-                match result {
-                    Ok(()) => {
-                        password.set(String::new());
-                    }
-                    Err(message) => {
-                        error.set(Some(message));
-                    }
+                if let Err(message) = save_wifi_credentials_and_restart(payload).await {
+                    error.set(Some(message));
                 }
             });
         })
@@ -156,37 +129,32 @@ pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> 
 
     html! {
         <ConfigCardComponent>
-            <div class="flex flex-col gap-3">
+            <form class="flex flex-col gap-3" onsubmit={on_save_and_restart}>
                 <p class="text-slate-300 text-sm">
                     {"Provision WiFi for station mode. Saving will reboot the device."}
                 </p>
                 <input
+                    ref={ssid_ref}
                     type="text"
                     class="rounded-sm p-2 bg-zinc-800 text-white"
                     placeholder="SSID"
-                    value={(*ssid).clone()}
-                    oninput={on_ssid_input}
                     autocomplete="off"
                     autocapitalize="none"
-                    disabled={*is_saving}
                 />
                 <input
+                    ref={password_ref}
                     type="password"
                     class="rounded-sm p-2 bg-zinc-800 text-white"
                     placeholder="Password"
-                    value={(*password).clone()}
-                    oninput={on_password_input}
                     autocomplete="new-password"
-                    disabled={*is_saving}
                 />
                 <button
                     class="text-gray-300 text-sm font-semibold border border-zinc-500 rounded px-3 py-2 disabled:opacity-50"
-                    onclick={on_save_and_restart}
-                    disabled={*is_saving}
+                    type="submit"
                 >
-                    { if *is_saving { "Saving..." } else { "Save and Restart" } }
+                    {"Save and Restart"}
                 </button>
-            </div>
+            </form>
         </ConfigCardComponent>
     }
 }

@@ -12,7 +12,6 @@ use picoserve::{
     routing::{self, parse_path_segment},
 };
 
-use crate::runtime::Runtime;
 use crate::widget::manager::WidgetManager;
 use crate::{util::globals, widget::store::WidgetStore};
 use common::models::WidgetStoreItem;
@@ -26,9 +25,13 @@ use custom_types::{ConfigWrapper, Error, HandlerResult, HtmlResponse, JsonString
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
 const HTTP_BUFFER_SIZE: usize = 16384;
-const STATIC_CACHE_HEADER: (&str, &str) = (
+const INDEX_CACHE_HEADER: (&str, &str) = (
     "Cache-Control",
-    "public, max-age=3600, stale-while-revalidate=86400",
+    "no-cache, no-store, must-revalidate",
+);
+const ASSET_HEADER: (&str, &str) = (
+    "Cache-Control",
+    "no-cache, must-revalidate",
 );
 
 pub struct Application;
@@ -42,8 +45,8 @@ impl AppBuilder for Application {
             .route("/install_widget", routing::post(post_install_widget))
             .route("/wifi_mode", routing::get(get_wifi_mode))
             .route(
-                "/wifi_credentials/restart",
-                routing::post(post_wifi_credentials_and_restart),
+                "/wifi_credentials",
+                routing::post(post_wifi_credentials),
             )
             .route(
                 "/system_config",
@@ -82,13 +85,20 @@ impl AppBuilder for Application {
                 routing::get(get_widget_config),
             )
             // routes to serve frontend files
-            .route("/", routing::get_service(File::html(frontend::INDEX_HTML)))
+            .route(
+                "/",
+                routing::get_service(File::with_content_type_and_headers(
+                    "text/html",
+                    frontend::INDEX_HTML.as_bytes(),
+                    &[INDEX_CACHE_HEADER],
+                )),
+            )
             .route(
                 "/frontend.js",
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::FRONTEND_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -96,7 +106,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/wasm",
                     frontend::FRONTEND_WASM_GZ,
-                    &[("Content-Encoding", "gzip"), STATIC_CACHE_HEADER],
+                    &[("Content-Encoding", "gzip"), ASSET_HEADER],
                 )),
             )
             .route(
@@ -104,7 +114,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "text/css",
                     frontend::OUTPUT_CSS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -112,7 +122,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "image/png",
                     frontend::LOGO_PNG,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -120,7 +130,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "text/css",
                     frontend::BOOTSTRAP_CSS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -128,7 +138,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JQUERY_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -136,7 +146,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::UNDERSCORE_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -144,7 +154,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JSONFORM_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -152,7 +162,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JSONFORM_DEFAULTS_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -160,7 +170,7 @@ impl AppBuilder for Application {
                 routing::get_service(File::with_content_type_and_headers(
                     "application/javascript",
                     frontend::JSONFORM_SPLIT_JS,
-                    &[STATIC_CACHE_HEADER],
+                    &[ASSET_HEADER],
                 )),
             )
             .route(
@@ -209,7 +219,7 @@ async fn get_wifi_mode() -> HandlerResult<Json<WifiModeResponse>> {
     }))
 }
 
-async fn post_wifi_credentials_and_restart(
+async fn post_wifi_credentials(
     Json(credentials): Json<WifiCredentials>,
 ) -> HandlerResult<()> {
     let ssid = credentials.ssid;
@@ -230,7 +240,7 @@ async fn post_wifi_credentials_and_restart(
     .await
     .map_err(|e| Error::new(format!("Failed to save WiFi credentials: {:?}", e)))?;
 
-    info!("Rebooting device due to provisioning request");
+    info!("Rebooting device due to Wifi config change");
     Timer::after(Duration::from_millis(250)).await;
     software_reset();
 }
