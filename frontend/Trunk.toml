@@ -2,3 +2,4 @@
 filehash = false
 dist = "dist"
 public_url = "/"
+no_sri = true

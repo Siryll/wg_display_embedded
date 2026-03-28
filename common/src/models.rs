@@ -16,7 +16,12 @@ pub struct WidgetInstallationData {
     pub name: String,
     pub description: String,
     pub version: String,
+    /// Widget config stored as JSON string since model is not known at compile time.
     pub json_config: String,
+    /// Widget config schema used by the frontend to render the config form
+    pub json_config_schema: String,
+    /// In what interval the widget should be re-run, only relevant for the embedded runtime since the [`SystemConfiguration`] is stored on the device
+    /// Set by the widget's `get-run-update-cycle-seconds` WIT export.
     pub update_cycle_seconds: u32,
 }
 #[derive(Deserialize, Serialize, Clone, PartialEq, Default, Debug)]

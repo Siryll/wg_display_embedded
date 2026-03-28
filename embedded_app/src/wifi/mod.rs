@@ -1,14 +1,16 @@
 use crate::util::globals;
+use alloc::string::ToString;
 use core::net::Ipv4Addr;
 use core::str::FromStr;
-use defmt::{debug, info, warn};
+use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
 use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_hal::rng::Rng;
+use esp_hal::system::software_reset;
 use esp_radio::wifi::{
-    AccessPointConfig, ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice, WifiEvent,
+    AccessPointConfig, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent,
     WifiStaState,
 };
 
@@ -59,7 +61,9 @@ impl Wifi {
             // Access Point mode
             (
                 interfaces.ap,
-                ModeConfig::AccessPoint(AccessPointConfig::default().with_ssid(ssid.clone())),
+                ModeConfig::AccessPoint(
+                    AccessPointConfig::default().with_ssid("WG Display AP".to_string()),
+                ),
                 embassy_net::Config::ipv4_static(StaticConfigV4 {
                     address: Ipv4Cidr::new(Ipv4Addr::new(192, 168, 2, 1), 24),
                     gateway: Some(Ipv4Addr::new(192, 168, 2, 1)),
@@ -113,7 +117,7 @@ impl Wifi {
         self.tls_seed
     }
 
-    pub async fn wait_for_connection(&self) {
+    pub async fn wait_for_connection(&self) -> Ipv4Cidr {
         info!("Waiting for link to be up");
         loop {
             if self.stack.is_link_up() {
@@ -126,7 +130,7 @@ impl Wifi {
         loop {
             if let Some(config) = self.stack.config_v4() {
                 info!("Got IP: {}", config.address);
-                break;
+                return config.address;
             }
             Timer::after(Duration::from_millis(500)).await;
         }
@@ -149,18 +153,10 @@ async fn connection(mut controller: WifiController<'static>) {
             info!("Starting wifi");
             controller.start_async().await.unwrap();
             info!("Wifi started!");
-
-            debug!("Scan");
-            let scan_config = ScanConfig::default().with_max(10);
-            let result = controller
-                .scan_with_config_async(scan_config)
-                .await
-                .unwrap();
-            for ap in result {
-                debug!("{:?}", ap);
-            }
         }
         info!("About to connect...");
+
+        globals::console_println("Connecting to WiFi").await;
 
         match controller.connect_async().await {
             Ok(_) => {
@@ -177,13 +173,16 @@ async fn connection(mut controller: WifiController<'static>) {
                         MAX_STATION_CONNECT_RETRIES
                     );
 
+                    globals::console_println("Failed to connect, rebooting in AP mode").await;
+
                     let mode_set =
                         globals::with_storage(|storage| storage.config_set("wifi_mode", "ap"))
                             .await;
 
                     if mode_set.is_ok() {
-                        globals::request_reboot();
-                        return;
+                        info!("Rebooting into AP mode...");
+                        Timer::after(Duration::from_millis(250)).await;
+                        software_reset();
                     }
 
                     warn!("Failed to persist AP fallback mode; continuing retries");
