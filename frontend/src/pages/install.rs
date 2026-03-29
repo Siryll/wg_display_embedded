@@ -156,52 +156,6 @@ pub fn install() -> Html {
         })
     };
 
-    let on_deinstall_widget = {
-        let error = error.clone();
-        let is_installing = is_installing.clone();
-        let widget_store_items = widget_store_items.clone();
-        Callback::from(move |event: MouseEvent| {
-            let value = event
-                .target()
-                .and_then(|t| t.dyn_into::<HtmlButtonElement>().ok())
-                .map(|btn| btn.value());
-
-            if let Some(widget_name) = value {
-                let error = error.clone();
-                let is_installing = is_installing.clone();
-                let widget_store_items = widget_store_items.clone();
-                wasm_bindgen_futures::spawn_local(async move {
-                    is_installing.set(true);
-                    let response = Request::get(&format!("/deinstall_widget/{}", widget_name))
-                        .send()
-                        .await;
-                    is_installing.set(false);
-
-                    match response {
-                        Err(e) => {
-                            error.set(Some(format!("Failed to deinstall widget: {}", e)));
-                            log!("Failed to deinstall widget");
-                        }
-                        Ok(response) => match response.status() {
-                            200 => {
-                                log!("Successfully deinstalled widget");
-                                load_store_items(widget_store_items, error).await;
-                            }
-                            _ => {
-                                let error_text = response
-                                    .text()
-                                    .await
-                                    .unwrap_or("Failed to deinstall widget".to_string());
-                                error.set(Some(error_text));
-                                log!("Failed to deinstall widget");
-                            }
-                        },
-                    }
-                });
-            }
-        })
-    };
-
     html! {
         <div class="h-full">
             <meta name="viewport" content="width=device-width initial-scale=1.0"/>
@@ -246,9 +200,6 @@ pub fn install() -> Html {
                                                         <span class="text-slate-300 text-xs"> {&item.description} </span>
                                                     </div>
                                                     <div class="flex flex-row gap-2">
-                                                        <button class="pt-2 text-gray-300 text-sm font-semibold" value={item.name.clone()} onclick={on_deinstall_widget.clone()} disabled={*is_installing}>
-                                                            {"Deinstall"}
-                                                        </button>
                                                         <button class="pt-2 text-gray-300 text-sm font-semibold" value={item.name.clone()} onclick={on_install_widget.clone()} disabled={*is_installing}>
                                                             {"Install"}
                                                         </button>

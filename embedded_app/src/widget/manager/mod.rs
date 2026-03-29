@@ -1,5 +1,6 @@
 use alloc::string::String;
 use alloc::vec::Vec;
+use common::models::SystemConfiguration;
 
 use crate::runtime::Runtime;
 use crate::runtime::http_sync::{self, BridgeMethod};
@@ -12,6 +13,7 @@ pub enum WidgetManagerError {
     Storage(StorageError),
     HttpError(&'static str),
     WasmError(&'static str),
+    AlreadyInstalled(&'static str),
 }
 
 impl From<StorageError> for WidgetManagerError {
@@ -68,6 +70,18 @@ impl WidgetManager {
                 ));
             }
         };
+
+        // check if widget has already been installed
+        let system_config: SystemConfiguration = globals::with_storage(|storage| storage.get_system_config())
+            .await
+            .unwrap_or_default();
+
+        if system_config.widgets.iter().any(|w| w.name == widget_metadata.name) {
+            return Err(WidgetManagerError::AlreadyInstalled(
+                "Widget with same name has already been installed",
+            ));
+        }
+
         widget_metadata.description = String::from(description);
 
         // simplify storage by just having one call that handles everything
