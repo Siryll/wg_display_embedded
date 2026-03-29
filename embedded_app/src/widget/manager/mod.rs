@@ -72,11 +72,16 @@ impl WidgetManager {
         };
 
         // check if widget has already been installed
-        let system_config: SystemConfiguration = globals::with_storage(|storage| storage.get_system_config())
-            .await
-            .unwrap_or_default();
+        let system_config: SystemConfiguration =
+            globals::with_storage(|storage| storage.get_system_config())
+                .await
+                .unwrap_or_default();
 
-        if system_config.widgets.iter().any(|w| w.name == widget_metadata.name) {
+        if system_config
+            .widgets
+            .iter()
+            .any(|w| w.name == widget_metadata.name)
+        {
             return Err(WidgetManagerError::AlreadyInstalled(
                 "Widget with same name has already been installed",
             ));
