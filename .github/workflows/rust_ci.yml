@@ -45,6 +45,7 @@ jobs:
           shared-key: rust-ci-${{ runner.os }}-esp32s3
           add-job-id-key: false
           cache-all-crates: true
+          cache-bin: false
           save-if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
           workspaces: |
             embedded_app -> target
@@ -56,9 +57,22 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Cache Cargo-installed tools
+        id: cargo-tools-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/trunk
+            ~/.cargo/bin/espflash
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: cargo-tools-${{ runner.os }}-${{ hashFiles('.github/workflows/rust_ci.yml') }}
+          restore-keys: |
+            cargo-tools-${{ runner.os }}-
       - name: Print cache status
         run: |
           echo "Rust cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          echo "Cargo tools cache hit: ${{ steps.cargo-tools-cache.outputs.cache-hit }}"
       - name: Install espflash
         run: cargo install espflash --locked
       - name: Setup frontend build dependencies

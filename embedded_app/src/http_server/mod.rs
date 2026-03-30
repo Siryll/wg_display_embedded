@@ -168,6 +168,46 @@ impl AppBuilder for Application {
                 "/assets/html/widget_config.html",
                 routing::get_service(File::html(frontend::WIDGET_CONFIG_HTML)),
             )
+            .route(
+                "/assets/fonts/glyphicons-halflings-regular.eot",
+                routing::get_service(File::with_content_type_and_headers(
+                    "application/vnd.ms-fontobject",
+                    frontend::FONT_GLYPHS_EOT,
+                    &[ASSET_HEADER],
+                )),
+            )
+            .route(
+                "/assets/fonts/glyphicons-halflings-regular.svg",
+                routing::get_service(File::with_content_type_and_headers(
+                    "image/svg+xml",
+                    frontend::FONT_GLYPHS_SVG,
+                    &[ASSET_HEADER],
+                )),
+            )
+            .route(
+                "/assets/fonts/glyphicons-halflings-regular.ttf",
+                routing::get_service(File::with_content_type_and_headers(
+                    "font/ttf",
+                    frontend::FONT_GLYPHS_TTF,
+                    &[ASSET_HEADER],
+                )),
+            )
+            .route(
+                "/assets/fonts/glyphicons-halflings-regular.woff",
+                routing::get_service(File::with_content_type_and_headers(
+                    "font/woff",
+                    frontend::FONT_GLYPHS_WOFF,
+                    &[ASSET_HEADER],
+                )),
+            )
+            .route(
+                "/assets/fonts/glyphicons-halflings-regular.woff2",
+                routing::get_service(File::with_content_type_and_headers(
+                    "font/woff2",
+                    frontend::FONT_GLYPHS_WOFF2,
+                    &[ASSET_HEADER],
+                )),
+            )
     }
 }
 
