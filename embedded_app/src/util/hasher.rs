@@ -15,7 +15,7 @@ impl<'d> Hasher<'d> {
         }
     }
 
-    // create a 12 bit hash for the wasm binary nvs storage
+    // create a 14 bit hash for the wasm binary nvs storage
     // based on the example from https://docs.rs/esp32-hal/latest/esp32_hal/sha/index.html
     pub fn hash(&mut self, input: &str) -> [u8; 14] {
         let mut hasher = self.sha.start::<Sha256>();
