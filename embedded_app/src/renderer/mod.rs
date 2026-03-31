@@ -51,7 +51,6 @@ pub struct Renderer {
     ip_address: String,
 }
 
-
 impl Renderer {
     pub fn new() -> Self {
         Self {
@@ -85,7 +84,7 @@ impl Renderer {
 
     /// Renderer loop, stores copy of [`SystemConfiguration`] and updates it only if changes are detected via [`Storage::get_system_config_change`](crate::storage::Storage::get_system_config_change).
     /// This function will never return and run indefinitly.
-    /// Runs on the seccond core due to [Runtime::run()](crate::runtime::Runtime::run()) being blocking due to Wasmtime's host functions. 
+    /// Runs on the seccond core due to [Runtime::run()](crate::runtime::Runtime::run()) being blocking due to Wasmtime's host functions.
     /// See [`runtime::http_sync`](crate::runtime::http_sync) for details.
     /// Only loads and runs widgets once their update cycle has passed.
     pub async fn run(&mut self) {

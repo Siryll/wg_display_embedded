@@ -1,7 +1,7 @@
 //! Channel-based bridge allowing synchronous HTTP calls from Wasmtime host function [runtime::host_api::http](crate::runtime::host_api::http).
 //!
 //! Due to potenial memory corruption issues with multiple [EspHttpClient](crate::http_client::EspHttpClient) instances, all http request are processed by [http_handler_task] even for async functions.
-//! 
+//!
 //!
 //! ```text
 //! Core 1 (widget)          Core 0 (embassy)
@@ -10,7 +10,7 @@
 //!   polls with 10ms         http_handler_task() dequeues
 //!   RTOS yields       ◄──  HTTP_RESPONSE_CHANNEL
 //! ```
-//! 
+//!
 //! Timeout on both sides: **30 seconds**.
 use crate::runtime::widget::widget::http;
 use crate::util::globals;

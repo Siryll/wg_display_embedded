@@ -31,7 +31,7 @@ impl EspTime {
 
     /// Fetches the current Unix timestamp from `timeapi.io`
     /// Also gets the current time since boot to be able to compute the current time based on the elapsed time since the fetch.
-    /// 
+    ///
     /// # Panics
     /// Panics if the HTTP request fails or the response cannot be parsed.
     pub async fn fetch_time(&mut self) {

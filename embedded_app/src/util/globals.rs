@@ -1,7 +1,7 @@
 //! Application-wide shared states for:
 //! - [`Storage`]
 //! - [`Display`]
-//! - [`EspHttpClient`] 
+//! - [`EspHttpClient`]
 //! - [`EspTime`]
 //!
 //! All `init_*` functions **must be called exactly once** during startup in `main()`, a seccond call to any init function will cause a panic.

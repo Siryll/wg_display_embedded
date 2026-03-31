@@ -156,7 +156,7 @@ impl Runtime {
     /// Passes a [`WidgetContext`] containing the last-invocation timestamp and
     /// the widget's current config. Returns the [`WidgetResult`] containing the
     /// text to display on screen.
-    /// 
+    ///
     /// Pass the same store as the one passed to [Self::instantiate], otherwise the execution will fail.
     fn run(
         &mut self,
@@ -262,8 +262,8 @@ impl Runtime {
     }
 
     /// wrapper function to get all widget metadata with the same store
-    /// 
-    /// Sets the [WidgetInstallationData::json_config] to `{}`, until the widget gets configured via the UI. 
+    ///
+    /// Sets the [WidgetInstallationData::json_config] to `{}`, until the widget gets configured via the UI.
     pub async unsafe fn get_widget_metadata(
         &mut self,
         bytes: &[u8],
