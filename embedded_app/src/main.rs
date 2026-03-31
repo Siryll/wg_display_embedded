@@ -99,12 +99,6 @@ async fn main(spawner: Spawner) -> ! {
         Storage::new(peripherals.FLASH, peripherals.SHA).expect("Failed to initialize storage");
     globals::init_storage(storage).await;
 
-    // Set ssid and pw on first compile, until configuration via UI is possible
-    // globals::with_storage(|storage| {
-    //     storage.config_set("ssid", "").expect("Failed to write config");
-    //     storage.config_set("pw", "").expect("Failed to write config");
-    // }).await;
-
     // -- Display setup --
     let display = Display::new(
         peripherals.SPI2,

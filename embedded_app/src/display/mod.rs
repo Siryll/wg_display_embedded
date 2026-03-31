@@ -1,3 +1,5 @@
+//! Display driver abstraction for the ESP32-S3-BOX. 
+
 use alloc::boxed::Box;
 use defmt::info;
 use embedded_graphics::Drawable;

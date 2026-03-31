@@ -1,4 +1,4 @@
-/// Types used by [``http_server``](crate::http_server) handlers to serve different types of content and errors
+//! Types used by [`http_server`](crate::http_server) handlers to serve different types of content and errors
 use alloc::string::String;
 use picoserve::response::{IntoResponse, StatusCode};
 use serde::Deserialize;

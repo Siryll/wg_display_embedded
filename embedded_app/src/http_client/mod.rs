@@ -10,13 +10,12 @@
 //!
 //! ## Usage
 //!
-//! Obtain the global instance via
+//! Call via
 //! [`http_sync::http_request_async`](crate::runtime::http_sync::http_request_async)
 //! from async contexts, or
 //! [`http_sync::http_request_sync`](crate::runtime::http_sync::http_request_sync)
 //! from sync contexts (e.g. widget WASM host functions). Do not construct
-//! [`EspHttpClient`] directly outside of the global initialisation in
-//! [`globals`](crate::util::globals).
+//! [`EspHttpClient`] directly.
 use alloc::vec::Vec;
 use defmt::{info, warn};
 use embassy_net::{
@@ -30,7 +29,6 @@ use reqwless::{
     request::RequestBuilder,
 };
 
-/// Obtain global instance by calling ['http_sync::http_request_async'](crate::runtime::http_sync::http_request_async) from async functions or ['http_sync::http_request_sync'](crate::runtime::http_sync::http_request_sync) from synchronous functions.
 pub struct EspHttpClient {
     stack: Stack<'static>,
     tls_seed: u64,
@@ -40,36 +38,6 @@ impl EspHttpClient {
     /// Creates a new client from a network stack and TLS seed.
     pub fn new(stack: Stack<'static>, tls_seed: u64) -> Self {
         Self { stack, tls_seed }
-    }
-
-    #[allow(dead_code)]
-    pub async fn get(&self, url: &str) -> Result<Vec<u8>, Error> {
-        self.request(reqwless::request::Method::GET, url, None)
-            .await
-    }
-
-    #[allow(dead_code)]
-    pub async fn post(&self, url: &str, body: Option<&[u8]>) -> Result<Vec<u8>, Error> {
-        self.request(reqwless::request::Method::POST, url, body)
-            .await
-    }
-
-    #[allow(dead_code)]
-    pub async fn put(&self, url: &str, body: Option<&[u8]>) -> Result<Vec<u8>, Error> {
-        self.request(reqwless::request::Method::PUT, url, body)
-            .await
-    }
-
-    #[allow(dead_code)]
-    pub async fn delete(&self, url: &str) -> Result<Vec<u8>, Error> {
-        self.request(reqwless::request::Method::DELETE, url, None)
-            .await
-    }
-
-    #[allow(dead_code)]
-    pub async fn head(&self, url: &str) -> Result<Vec<u8>, Error> {
-        self.request(reqwless::request::Method::HEAD, url, None)
-            .await
     }
 
     /// Sends HTTPS requests and returns the response body.

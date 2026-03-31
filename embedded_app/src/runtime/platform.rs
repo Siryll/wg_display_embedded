@@ -1,4 +1,5 @@
-// most basic func needed to run wasmtime in no_std: https://github.com/bytecodealliance/wasmtime/blob/main/examples/min-platform/embedding/wasmtime-platform.h
+/// most basic func needed to run wasmtime in no_std: https://github.com/bytecodealliance/wasmtime/blob/main/examples/min-platform/embedding/wasmtime-platform.h
+/// memory for both cores is separated to avoid potential race conditions.
 
 use core::ptr;
 use core::sync::atomic::{AtomicPtr, Ordering};

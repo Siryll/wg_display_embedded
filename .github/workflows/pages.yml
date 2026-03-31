@@ -7,6 +7,9 @@ on:
     paths:
       - "docs/**"
       - "widget_store.json"
+      - "common/src/**"
+      - "embedded_app/src/**"
+      - "frontend/src/**"
   release:
     types:
       - published
@@ -46,6 +49,42 @@ jobs:
         run: |
           cp widget_store.json docs/widget_store.json
           echo "Published docs/widget_store.json from repository root"
+
+      - name: Setup stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Setup Rust ESP toolchain
+        uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          buildtargets: esp32s3
+          ldproxy: false
+
+      - name: Restore stable as default toolchain
+        run: rustup default stable
+
+      - name: Build Rust docs for common
+        run: |
+          cd common
+          cargo doc --no-deps
+          mkdir -p ../docs/rustdoc/common
+          cp -r target/doc/* ../docs/rustdoc/common/
+
+      - name: Build Rust docs for embedded_app
+        run: |
+          cd embedded_app
+          cargo doc --no-deps --target xtensa-esp32s3-none-elf
+          mkdir -p ../docs/rustdoc/embedded_app
+          cp -r target/xtensa-esp32s3-none-elf/doc/* ../docs/rustdoc/embedded_app/
+
+      - name: Build Rust docs for frontend
+        run: |
+          cd frontend
+          cargo doc --no-deps --target wasm32-unknown-unknown
+          mkdir -p ../docs/rustdoc/frontend
+          cp -r target/wasm32-unknown-unknown/doc/* ../docs/rustdoc/frontend/
 
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
