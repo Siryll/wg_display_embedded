@@ -1,15 +1,6 @@
 name: Deploy GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "docs/**"
-      - "widget_store.json"
-      - "common/src/**"
-      - "embedded_app/src/**"
-      - "frontend/src/**"
   release:
     types:
       - published
@@ -19,6 +10,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 concurrency:
   group: pages
@@ -50,41 +42,26 @@ jobs:
           cp widget_store.json docs/widget_store.json
           echo "Published docs/widget_store.json from repository root"
 
-      - name: Setup stable Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Resolve CI run ID
+        id: ci-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          else
+            RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/rust_ci.yml/runs" \
+              --jq '[.workflow_runs[] | select(.conclusion == "success")] | first | .id')
+            echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download rustdoc artifact
+        uses: actions/download-artifact@v4
         with:
-          targets: wasm32-unknown-unknown
-
-      - name: Setup Rust ESP toolchain
-        uses: esp-rs/xtensa-toolchain@v1.5
-        with:
-          default: true
-          buildtargets: esp32s3
-          ldproxy: false
-
-      - name: Restore stable as default toolchain
-        run: rustup default stable
-
-      - name: Build Rust docs for common
-        run: |
-          cd common
-          cargo doc --no-deps
-          mkdir -p ../docs/rustdoc/common
-          cp -r target/doc/* ../docs/rustdoc/common/
-
-      - name: Build Rust docs for embedded_app
-        run: |
-          cd embedded_app
-          cargo doc --no-deps --target xtensa-esp32s3-none-elf
-          mkdir -p ../docs/rustdoc/embedded_app
-          cp -r target/xtensa-esp32s3-none-elf/doc/* ../docs/rustdoc/embedded_app/
-
-      - name: Build Rust docs for frontend
-        run: |
-          cd frontend
-          cargo doc --no-deps --target wasm32-unknown-unknown
-          mkdir -p ../docs/rustdoc/frontend
-          cp -r target/wasm32-unknown-unknown/doc/* ../docs/rustdoc/frontend/
+          name: rustdoc
+          path: docs/rustdoc
+          run-id: ${{ steps.ci-run.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
