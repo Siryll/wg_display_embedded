@@ -1,14 +1,12 @@
 use crate::runtime::WidgetState;
-use crate::runtime::widget::widget::clocks;
+use crate::runtime::widget::widget::clocks::{self, Datetime};
 use crate::util::globals;
 
 impl clocks::Host for WidgetState {
     fn now(&mut self) -> clocks::Datetime {
-        let (seconds, nanoseconds) = globals::now_parts().unwrap_or((0, 0));
-
-        clocks::Datetime {
-            seconds,
-            nanoseconds,
-        }
+        globals::now().unwrap_or(Datetime {
+            seconds: 0,
+            nanoseconds: 0,
+        })
     }
 }

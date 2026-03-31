@@ -1,11 +1,13 @@
 //! Widget installation and removal.
 use alloc::string::String;
 use alloc::vec::Vec;
+use common::models::SystemConfiguration;
 
 use crate::runtime::Runtime;
 use crate::runtime::http_sync::{self, BridgeMethod};
 use crate::storage::StorageError;
 use crate::util::globals;
+use defmt::error;
 
 /// Errors returned by widget management operations.
 #[derive(Debug, defmt::Format)]
@@ -16,6 +18,7 @@ pub enum WidgetManagerError {
     HttpError(&'static str),
     /// A WASM load, instantiation, or metadata extraction failed.
     WasmError(&'static str),
+    AlreadyInstalled(&'static str),
 }
 
 impl From<StorageError> for WidgetManagerError {
@@ -60,36 +63,41 @@ impl WidgetManager {
         .await
         .map_err(|_| WidgetManagerError::HttpError("HTTP bridge request failed"))?;
 
-        // TODO: runtime now ready, now needs repo widget template for embedded version
         let mut runtime = Runtime::new();
-        let module = unsafe { runtime.load_module(&response.bytes) }
-            .map_err(|_| WidgetManagerError::WasmError("Failed to load WASM module"))?;
-        let widget = runtime
-            .instantiate(&module)
-            .map_err(|_| WidgetManagerError::WasmError("Failed to instantiate component"))?;
-        let widget_name = runtime
-            .get_widget_name(&widget)
-            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget name"))?;
-        let version = runtime
-            .get_widget_version(&widget)
-            .map_err(|_| WidgetManagerError::WasmError("Failed to get widget version"))?;
-        let update_cycle_seconds = runtime.get_run_update_cycle_seconds(&widget).map_err(|_| {
-            WidgetManagerError::WasmError("Failed to get widget update cycle seconds")
-        })?;
-        // let widget_name = "example_widget";
-        // let version = "0.1.0";
-        let json_config = "{}";
+
+        let widget_metadata_result = unsafe { runtime.get_widget_metadata(&response.bytes).await };
+
+        let mut widget_metadata = match widget_metadata_result {
+            Ok(config) => config,
+            Err(_) => {
+                error!("Failed to get config schema for '{}'", download_url);
+                return Err(WidgetManagerError::WasmError(
+                    "Failed to get widget config schema",
+                ));
+            }
+        };
+
+        // check if widget has already been installed
+        let system_config: SystemConfiguration =
+            globals::with_storage(|storage| storage.get_system_config())
+                .await
+                .unwrap_or_default();
+
+        if system_config
+            .widgets
+            .iter()
+            .any(|w| w.name == widget_metadata.name)
+        {
+            return Err(WidgetManagerError::AlreadyInstalled(
+                "Widget with same name has already been installed",
+            ));
+        }
+
+        widget_metadata.description = String::from(description);
 
         // simplify storage by just having one call that handles everything
         globals::with_storage(|storage| {
-            storage.save_compiled_widget(
-                widget_name.as_str(),
-                description,
-                version.as_str(),
-                json_config,
-                update_cycle_seconds,
-                &response.bytes,
-            )
+            storage.save_compiled_widget(widget_metadata, &response.bytes)
         })
         .await?;
         Ok(())

@@ -11,6 +11,7 @@ use crate::components::background_color_config::BackgroundColorConfigComponent;
 use crate::components::config_card::ConfigCardComponent;
 use crate::components::divider::DividerComponent;
 use crate::components::error_display::ErrorDisplay;
+use crate::components::wifi_credentials_config::WifiCredentialsConfigComponent;
 use crate::routing::router::Route;
 
 #[function_component(Home)]
@@ -96,6 +97,10 @@ pub fn home() -> Html {
 
                             <BackgroundColorConfigComponent
                                 config={system_config.clone()}
+                            />
+
+                            <WifiCredentialsConfigComponent
+                                error={error.clone()}
                             />
 
 

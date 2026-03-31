@@ -4,7 +4,6 @@
 //! - `"config"` — for all config related data. Stores WIFI Name and Password and [`SystemConfiguration`].
 //! - `"wasm"` — precompiled widget WASM binaries, name hashed to fit NVS key length limit with [`Hasher`].
 use crate::util::hasher::Hasher;
-use alloc::string::ToString;
 use common::models::{SystemConfiguration, WidgetInstallationData};
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;
@@ -158,22 +157,12 @@ impl<'d> Storage<'d> {
     /// Writes a widget WASM binary to NVS **and** adds it to the system config in one call.
     pub fn save_compiled_widget(
         &mut self,
-        name: &str,
-        description: &str,
-        version: &str,
-        json_config: &str,
-        update_cycle_seconds: u32,
+        widget_metadata: WidgetInstallationData,
         data: &[u8],
     ) -> Result<(), StorageError> {
-        self.wasm_write(name, data)?;
+        self.wasm_write(&widget_metadata.name, data)?;
         let mut config = self.get_system_config()?;
-        config.widgets.push(WidgetInstallationData {
-            name: name.to_string(),
-            description: description.to_string(),
-            version: version.to_string(),
-            json_config: json_config.to_string(),
-            update_cycle_seconds,
-        });
+        config.widgets.push(widget_metadata);
         self.save_system_config(&config)?;
         Ok(())
     }

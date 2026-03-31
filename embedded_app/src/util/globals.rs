@@ -7,6 +7,7 @@
 //! All `init_*` functions **must be called exactly once** during startup in `main()`, a seccond call to any init function will cause a panic.
 use crate::display::Display;
 use crate::http_client::EspHttpClient;
+use crate::runtime::widget::widget::clocks::Datetime;
 use crate::storage::Storage;
 use crate::util::esptime::EspTime;
 use core::cell::RefCell;
@@ -69,6 +70,10 @@ where
     f(display)
 }
 
+pub async fn console_println(text: &str) {
+    with_display(|display| display.console_println(text)).await;
+}
+
 pub fn init_network(stack: Stack<'static>, tls_seed: u64) {
     unsafe {
         NETWORK_STACK = Some(stack);
@@ -114,6 +119,6 @@ where
     })
 }
 
-pub fn now_parts() -> Option<(u64, u32)> {
-    with_time(EspTime::now_parts)
+pub fn now() -> Option<Datetime> {
+    with_time(EspTime::now)
 }

@@ -20,6 +20,7 @@ jobs:
     name: Rust Checks
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
     steps:
       - name: Checkout repository
@@ -37,13 +38,41 @@ jobs:
           ldproxy: false
       - name: Restore stable as default toolchain
         run: rustup default stable
-      - name: Enable caching
+      - name: Enable Rust caching
+        id: rust-cache
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: rust-ci-${{ runner.os }}-esp32s3
+          add-job-id-key: false
+          cache-all-crates: true
+          cache-bin: false
+          save-if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
           workspaces: |
-            embedded_app
-            common
-            frontend
+            embedded_app -> target
+            common -> target
+            frontend -> target
+      - name: Setup Node.js with npm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Cache Cargo-installed tools
+        id: cargo-tools-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/trunk
+            ~/.cargo/bin/espflash
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: cargo-tools-${{ runner.os }}-${{ hashFiles('.github/workflows/rust_ci.yml') }}
+          restore-keys: |
+            cargo-tools-${{ runner.os }}-
+      - name: Print cache status
+        run: |
+          echo "Rust cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          echo "Cargo tools cache hit: ${{ steps.cargo-tools-cache.outputs.cache-hit }}"
       - name: Install espflash
         run: cargo install espflash --locked
       - name: Setup frontend build dependencies
@@ -51,7 +80,7 @@ jobs:
           cargo +stable install --locked trunk
           rustup target add wasm32-unknown-unknown --toolchain stable
           cd frontend
-          npm ci
+          npm ci --prefer-offline
       - name: Build frontend assets once
         run: make frontend
       - name: Rust fmt checks

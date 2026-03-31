@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "docs/**"
+      - "widget_store.json"
   release:
     types:
       - published
@@ -38,8 +39,13 @@ jobs:
           if gh release download --repo "Siryll/wg_display_embedded" --pattern firmware.bin --dir docs --clobber; then
             echo "Downloaded firmware.bin from Siryll/wg_display_embedded latest release"
           else
-            echo "No firmware.bin release asset found in Siryll/wg_display_embedded_test; continuing with existing docs/firmware.bin if present"
+            echo "No firmware.bin release asset found in Siryll/wg_display_embedded; continuing with existing docs/firmware.bin if present"
           fi
+
+      - name: Publish widget store file
+        run: |
+          cp widget_store.json docs/widget_store.json
+          echo "Published docs/widget_store.json from repository root"
 
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1

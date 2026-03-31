@@ -4,6 +4,7 @@
 //! the current time by adding the elapsed duration since the fetch.
 use crate::runtime::http_sync;
 use crate::runtime::http_sync::BridgeMethod;
+use crate::runtime::widget::widget::clocks::Datetime;
 use esp_hal::time::Instant;
 use serde::Deserialize;
 
@@ -57,13 +58,16 @@ impl EspTime {
     /// Returns the current UTC time as `(seconds, nanoseconds)` since the Unix epoch.
     ///
     /// Used by the host function `runtime::host_api::clock_get`.
-    pub fn now_parts(&self) -> Option<(u64, u32)> {
+    pub fn now(&self) -> Option<Datetime> {
         match (self.fetch_time_offset, self.fetched_time_epoch) {
             (Some(offset), Some(epoch)) => {
                 let elapsed = Instant::now() - offset;
                 let seconds = epoch.saturating_add(elapsed.as_secs());
                 let nanoseconds = ((elapsed.as_micros() % 1_000_000) * 1_000) as u32;
-                Some((seconds, nanoseconds))
+                Some(Datetime {
+                    seconds,
+                    nanoseconds,
+                })
             }
             _ => None,
         }

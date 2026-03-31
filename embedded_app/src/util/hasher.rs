@@ -18,7 +18,8 @@ impl<'d> Hasher<'d> {
         }
     }
 
-    /// Returns the first 14 bytes of the digest
+    // create a 14 bit hash for the wasm binary nvs storage
+    // based on the example from https://docs.rs/esp32-hal/latest/esp32_hal/sha/index.html
     pub fn hash(&mut self, input: &str) -> [u8; 14] {
         let mut hasher = self.sha.start::<Sha256>();
         let mut remaining = input.as_bytes();
