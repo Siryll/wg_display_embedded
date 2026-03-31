@@ -1,14 +1,17 @@
+//! SHA-256 hashing with hardware SHA peripheral.
 use esp_hal::{
     peripherals::SHA,
     sha::{Sha, Sha256},
 };
 use nb::block;
 
+/// Wraps the ESP32 hardware SHA peripheral for SHA-256 computation.
 pub struct Hasher<'d> {
     sha: Sha<'d>,
 }
 
 impl<'d> Hasher<'d> {
+    /// Creates a new [`Hasher`] from the `SHA` peripheral.
     pub fn new(sha_peripherals: SHA<'d>) -> Self {
         Self {
             sha: Sha::new(sha_peripherals),

@@ -1,12 +1,6 @@
 name: Deploy GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "docs/**"
-      - "widget_store.json"
   release:
     types:
       - published
@@ -16,6 +10,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 concurrency:
   group: pages
@@ -46,6 +41,27 @@ jobs:
         run: |
           cp widget_store.json docs/widget_store.json
           echo "Published docs/widget_store.json from repository root"
+
+      - name: Resolve CI run ID
+        id: ci-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          else
+            RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/rust_ci.yml/runs" \
+              --jq '[.workflow_runs[] | select(.conclusion == "success")] | first | .id')
+            echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download rustdoc artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rustdoc
+          path: docs/rustdoc
+          run-id: ${{ steps.ci-run.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1

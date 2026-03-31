@@ -1,3 +1,15 @@
+//! Wasmtime WebAssembly Component Model runtime for widget execution.
+//!
+//! Widgets are precompiled WASM components that export a standard WIT interface.
+//! Each widget execution creates a fresh [`Runtime`] instance — no WASM state
+//! persists between runs.
+//!
+//! ## Precompiled Widgets
+//!
+//! [`Runtime::load_module`] expects a **precompiled** WASM component for the xtensa architecture
+//! This is done via the [precompiler](https://github.com/Siryll/wg_display_embedded_precompiler) script.
+//! All of this will be done automaticall when the [widget-template](https://github.com/Siryll/wg_display_embedded_widget_template) is used to create a widget.
+//!
 mod platform;
 
 mod host_api;
@@ -21,6 +33,8 @@ use defmt::warn;
 // links wit finctions, implementations in host_api
 wasmtime::component::bindgen!({ path: "src/runtime/host_api/wit" });
 
+/// Struct to how potential object states that are passed and useable inside of the host function.
+/// Currently empty.
 pub struct WidgetState {}
 
 impl WidgetState {
@@ -36,6 +50,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// Creates a new runtime
     pub fn new() -> Self {
         defmt::info!("Initializing Wasmtime runtime");
 
@@ -81,14 +96,6 @@ impl Runtime {
     }
 
     /// Deserialises a precompiled Wasmtime component from raw bytes.
-    ///
-    /// # Safety
-    /// The bytes **must** be a Wasmtime precompiled component artifact produced
-    /// by the same Wasmtime version (42.0.1) targeting `xtensa-esp32s3-none-elf`.
-    /// Passing a raw `.wasm` file or a mismatched artifact will return an error.
-    ///
-    /// # Errors
-    /// Returns an error if `bytes` is not recognised as a precompiled component.
     unsafe fn load_module(&self, bytes: &[u8]) -> Result<Component> {
         defmt::debug!("Loading precompiled module ({} bytes)", bytes.len());
 
@@ -121,10 +128,7 @@ impl Runtime {
     }
 
     /// Binds host functions and instantiates a loaded component.
-    ///
-    /// # Errors
-    /// Returns an error if the component's imports cannot be satisfied by the
-    /// current host API linker (e.g. WIT interface mismatch).
+    /// Requires a mutable store, any created store should only live as long as it is needed and should be destroyed after widget executution to free up memory.
     fn instantiate(
         &mut self,
         component: &Component,
@@ -152,6 +156,8 @@ impl Runtime {
     /// Passes a [`WidgetContext`] containing the last-invocation timestamp and
     /// the widget's current config. Returns the [`WidgetResult`] containing the
     /// text to display on screen.
+    ///
+    /// Pass the same store as the one passed to [Self::instantiate], otherwise the execution will fail.
     fn run(
         &mut self,
         widget: &Widget,
@@ -256,6 +262,8 @@ impl Runtime {
     }
 
     /// wrapper function to get all widget metadata with the same store
+    ///
+    /// Sets the [WidgetInstallationData::json_config] to `{}`, until the widget gets configured via the UI.
     pub async unsafe fn get_widget_metadata(
         &mut self,
         bytes: &[u8],

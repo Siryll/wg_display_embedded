@@ -1,3 +1,44 @@
+//! Web UI and REST API server using [picoserve](https://github.com/sammhicks/picoserve).
+//!
+//! ## Configuration
+//!
+//! [`WEB_TASK_POOL_SIZE`] sets the number of concurrent web task. Greatly increased RAM usage with each task.
+//! [`TCP_BUFFER_SIZE`] sets the size of the TCP buffer for each connection.
+//! [`HTTP_BUFFER_SIZE`] sets the size of the HTTP buffer. This greatly impact the upload speed of assets and files.
+//!
+//! ## Routed Endpoints
+//!
+//! | Route | Method | Backing handler or asset |
+//! |---|---|---|
+//! | `/get_store_items` | GET | [`get_store_items`] |
+//! | `/install_widget` | POST | [`post_install_widget`] |
+//! | `/wifi_mode` | GET | [`get_wifi_mode`] |
+//! | `/wifi_credentials` | POST | [`post_wifi_credentials`] |
+//! | `/system_config` | GET | [`get_system_config`] |
+//! | `/system_config` | POST | [`post_system_config`] |
+//! | `/deinstall_widget/<widget_name>` | GET | [`deinstall_widget`] |
+//! | `/config_schema/<widget_name>` | GET | [`get_config_schema`] |
+//! | `/widget_config/<widget_name>` | POST | [`post_widget_config`] |
+//! | `/widget_configuration/<widget_name>` | GET | [`get_widget_config`] |
+//! | `/` | GET | [`frontend::INDEX_HTML`]  |
+//! | `/frontend.js` | GET | [`frontend::FRONTEND_JS`]  |
+//! | `/frontend_bg.wasm` | GET | [`frontend::FRONTEND_WASM_GZ`]  |
+//! | `/output.css` | GET | [`frontend::OUTPUT_CSS`]  |
+//! | `/assets/logo.png` | GET | [`frontend::LOGO_PNG`]  |
+//! | `/assets/css/bootstrap.css` | GET | [`frontend::BOOTSTRAP_CSS`]  |
+//! | `/assets/js/jquery.min.js` | GET | [`frontend::JQUERY_JS`]  |
+//! | `/assets/js/underscore.js` | GET | [`frontend::UNDERSCORE_JS`]  |
+//! | `/assets/js/jsonform.js` | GET | [`frontend::JSONFORM_JS`]  |
+//! | `/assets/js/jsonform-defaults.js` | GET | [`frontend::JSONFORM_DEFAULTS_JS`]  |
+//! | `/assets/js/jsonform-split.js` | GET | [`frontend::JSONFORM_SPLIT_JS`]  |
+//! | `/assets/html/widget_config.html` | GET | [`frontend::WIDGET_CONFIG_HTML`]  |
+//! | `/assets/fonts/glyphicons-halflings-regular.eot` | GET | [`frontend::FONT_GLYPHS_EOT`]  |
+//! | `/assets/fonts/glyphicons-halflings-regular.svg` | GET | [`frontend::FONT_GLYPHS_SVG`]  |
+//! | `/assets/fonts/glyphicons-halflings-regular.ttf` | GET | [`frontend::FONT_GLYPHS_TTF`]  |
+//! | `/assets/fonts/glyphicons-halflings-regular.woff` | GET | [`frontend::FONT_GLYPHS_WOFF`]  |
+//! | `/assets/fonts/glyphicons-halflings-regular.woff2` | GET | [`frontend::FONT_GLYPHS_WOFF2`]  |
+//!
+//!
 use alloc::format;
 use defmt::{error, info};
 use embassy_executor::Spawner;
@@ -26,6 +67,7 @@ pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
 const HTTP_BUFFER_SIZE: usize = 16384;
 const INDEX_CACHE_HEADER: (&str, &str) = ("Cache-Control", "no-cache, no-store, must-revalidate");
+/// Asset http headers
 const ASSET_HEADER: (&str, &str) = ("Cache-Control", "no-cache, must-revalidate");
 
 pub struct Application;
@@ -33,6 +75,7 @@ pub struct Application;
 impl AppBuilder for Application {
     type PathRouter = impl routing::PathRouter;
 
+    /// creates all routes, including static frontend assets
     fn build_app(self) -> picoserve::Router<Self::PathRouter> {
         picoserve::Router::new()
             .route("/get_store_items", routing::get(get_store_items))
@@ -212,6 +255,7 @@ impl AppBuilder for Application {
 }
 
 // TODO: create WidetStore instance in globals and init the store on boot that unnecessary wait time can be avoided
+/// gets and returns all widget store items as JSON.
 async fn get_store_items() -> HandlerResult<JsonStringResponse> {
     let mut store = WidgetStore::new();
     store
@@ -224,6 +268,7 @@ async fn get_store_items() -> HandlerResult<JsonStringResponse> {
     Ok(JsonStringResponse(json))
 }
 
+/// gets and returns the currently stored system config, create a new default config if none is present (first boot)
 async fn get_system_config() -> HandlerResult<Json<SystemConfiguration>> {
     match globals::with_storage(|storage| storage.get_system_config()).await {
         Ok(config) => Ok(Json(config)),
@@ -240,6 +285,7 @@ async fn get_system_config() -> HandlerResult<Json<SystemConfiguration>> {
     }
 }
 
+/// gets the current wifi mode (AP or Station) to let the frontend decide which components to show
 async fn get_wifi_mode() -> HandlerResult<Json<WifiModeResponse>> {
     let mode = globals::with_storage(|storage| storage.config_get("wifi_mode"))
         .await
@@ -250,6 +296,7 @@ async fn get_wifi_mode() -> HandlerResult<Json<WifiModeResponse>> {
     }))
 }
 
+/// receives wifi credentials from the frontend, saves them to storage and reboots
 async fn post_wifi_credentials(Json(credentials): Json<WifiCredentials>) -> HandlerResult<()> {
     let ssid = credentials.ssid;
     let password = credentials.password;
@@ -274,6 +321,7 @@ async fn post_wifi_credentials(Json(credentials): Json<WifiCredentials>) -> Hand
     software_reset();
 }
 
+/// Installs a widget from a given URL or from the widget store, determined by the `InstallAction` payload.
 async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult<()> {
     let (download_url, description) = match action {
         InstallAction::FromUrl(url) => (url, alloc::string::String::from("No description")),
@@ -298,6 +346,7 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult
     Ok(())
 }
 
+/// receives an updated system configuration from the frontend and saves it to NVS. The config is only saved if there are changes to avoid flash wear.
 async fn post_system_config(
     JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<
         SystemConfiguration,
@@ -313,12 +362,14 @@ async fn post_system_config(
         .map_err(|e| Error::new(format!("Failed to save system config: {:?}", e)))
 }
 
+/// Remove widget from system config and storage
 async fn deinstall_widget(widget_name: alloc::string::String) -> HandlerResult<()> {
     WidgetManager::deinstall_widget(widget_name.as_str())
         .await
         .map_err(|e| Error::new(format!("Failed to deinstall widget: {:?}", e)))
 }
 
+/// gets the JSON config schema for a given widget
 async fn get_config_schema(
     widget_name: alloc::string::String,
 ) -> HandlerResult<JsonStringResponse> {
@@ -340,6 +391,7 @@ async fn get_config_schema(
     Ok(JsonStringResponse(config))
 }
 
+/// update the JSON config for a given widget
 async fn post_widget_config(
     widget_name: alloc::string::String,
     JsonWithUnescapeBufferSize(config): JsonWithUnescapeBufferSize<ConfigWrapper, HTTP_BUFFER_SIZE>,
@@ -371,6 +423,7 @@ async fn post_widget_config(
         .map_err(|e| Error::new(format!("Failed to save widget config: {:?}", e)))
 }
 
+/// returns the HTML page that makes up the widget configuration UI
 async fn get_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
     info!(
         "Serving widget configuration page for: {}",

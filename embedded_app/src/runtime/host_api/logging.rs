@@ -1,3 +1,7 @@
+#![doc = "Implementation of the `logging` WIT interface.\n\n```wit"]
+#![doc = include_str!("wit/logging.wit")]
+#![doc = "```"]
+
 use crate::runtime::WidgetState;
 use crate::runtime::widget::widget::logging;
 use alloc::string::String;

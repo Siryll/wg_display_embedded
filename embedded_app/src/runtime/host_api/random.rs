@@ -1,3 +1,7 @@
+#![doc = "Implementation of the `random` WIT interface.\n\n```wit"]
+#![doc = include_str!("wit/random.wit")]
+#![doc = "```"]
+
 use crate::runtime::WidgetState;
 use crate::runtime::widget::widget::random;
 use esp_hal::rng::Rng;

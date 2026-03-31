@@ -32,6 +32,11 @@ Clone the repo:
 git clone https://github.com/Siryll/wg_display_embedded.git
 ```
 
+Install dependencies:
+```bash
+make install-deps
+```
+
 Build the project:
 ```bash
 make build

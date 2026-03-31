@@ -3,7 +3,7 @@ name: Continuous Integration
 on:
   push:
     branches:
-      - main
+      - master
     tags:
       - '*'
     paths-ignore:
@@ -98,6 +98,23 @@ jobs:
       - name: Create binary
         run:
           espflash save-image --chip esp32s3 --flash-size 16mb --merge --partition-table embedded_app/partitions.csv embedded_app/target/xtensa-esp32s3-none-elf/release/embedded_wg_display firmware.bin
+      - name: Build Rust docs
+        run: |
+          cd common && cargo doc --no-deps
+          cd ../embedded_app && cargo doc --no-deps --target xtensa-esp32s3-none-elf
+          cd ../frontend && cargo doc --no-deps --target wasm32-unknown-unknown
+      - name: Collect rustdocs
+        run: |
+          mkdir -p rustdoc-artifact/common rustdoc-artifact/embedded_app rustdoc-artifact/frontend
+          cp -r common/target/doc/* rustdoc-artifact/common/
+          cp -r embedded_app/target/xtensa-esp32s3-none-elf/doc/* rustdoc-artifact/embedded_app/
+          cp -r frontend/target/wasm32-unknown-unknown/doc/* rustdoc-artifact/frontend/
+      - name: Upload rustdoc artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdoc
+          path: rustdoc-artifact/
+          retention-days: 90
       - uses: ncipollo/release-action@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:

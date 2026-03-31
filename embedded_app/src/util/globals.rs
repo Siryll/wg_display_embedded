@@ -1,3 +1,10 @@
+//! Application-wide shared states for:
+//! - [`Storage`]
+//! - [`Display`]
+//! - [`EspHttpClient`]
+//! - [`EspTime`]
+//!
+//! All `init_*` functions **must be called exactly once** during startup in `main()`, a seccond call to any init function will cause a panic.
 use crate::display::Display;
 use crate::http_client::EspHttpClient;
 use crate::runtime::widget::widget::clocks::Datetime;

@@ -1,3 +1,5 @@
+//! Widget rendering loop, executes widgets and displays their information on the screen.
+
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -21,6 +23,7 @@ use alloc::format;
 use crate::runtime::Runtime;
 use crate::util::globals;
 
+/// Constant for the delay between widget update checks
 const RENDER_TICK_MS: u64 = 1000;
 const DISPLAY_WIDTH: u32 = 320;
 const DISPLAY_HEIGHT: u32 = 240;
@@ -59,6 +62,7 @@ impl Renderer {
         }
     }
 
+    /// Update the information stored in [Renderer::widgets] based on the provided [`SystemConfiguration`].
     fn update_widget_information(&mut self, config: &SystemConfiguration) {
         self.background_color = parse_background_color(config.background_color.as_str());
         self.widgets = config
@@ -78,6 +82,11 @@ impl Renderer {
             .collect();
     }
 
+    /// Renderer loop, stores copy of [`SystemConfiguration`] and updates it only if changes are detected via [`Storage::get_system_config_change`](crate::storage::Storage::get_system_config_change).
+    /// This function will never return and run indefinitly.
+    /// Runs on the seccond core due to [Runtime::run()](crate::runtime::Runtime::run()) being blocking due to Wasmtime's host functions.
+    /// See [`runtime::http_sync`](crate::runtime::http_sync) for details.
+    /// Only loads and runs widgets once their update cycle has passed.
     pub async fn run(&mut self) {
         self.ip_address = globals::with_storage(|storage| {
             storage
@@ -119,6 +128,7 @@ impl Renderer {
         }
     }
 
+    /// Checks if any widget needs to be run this cycle, runs them, and updates their last output.
     async fn update_widgets(&mut self) {
         let now = Instant::now();
         for widget in &mut self.widgets {
@@ -156,6 +166,7 @@ impl Renderer {
         }
     }
 
+    /// Renders the screen layout, writes into a framebuffer to avoid screen flickering.
     async fn render_layout(&mut self) {
         let mut fb = FrameBuf::new(
             self.framebuffer.as_mut(),

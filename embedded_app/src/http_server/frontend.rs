@@ -1,3 +1,4 @@
+//! List of static frontend assets that are embedded into the compiled binary.
 pub const INDEX_HTML: &str = include_str!("../../../frontend/dist/index.html");
 pub const FRONTEND_JS: &[u8] = include_bytes!("../../../frontend/dist/frontend.js");
 pub const OUTPUT_CSS: &[u8] = include_bytes!("../../../frontend/dist/output.css");

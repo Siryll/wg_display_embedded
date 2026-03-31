@@ -1,3 +1,8 @@
+//! WiFi station mode driver.
+//!
+//! Call [`Wifi::start_station`] once from `main()` to configure the radio,
+//! spawn the connection and network tasks, then await
+//! [`Wifi::wait_for_connection`] before starting any network-dependent tasks.
 use crate::util::globals;
 use alloc::string::ToString;
 use core::net::Ipv4Addr;
@@ -31,13 +36,19 @@ macro_rules! mk_static {
     }};
 }
 
-// Struct to hold relevenat states for other modules (http server/client)
+/// Struct to hold relevenat states for other modules (http server/client)
 pub struct Wifi {
     stack: Stack<'static>,
     tls_seed: u64,
 }
 
 impl Wifi {
+    /// Initialises the WiFi radio.
+    ///
+    /// With `use_ap = false`, the device will attempt to connect to the specified WiFi network as a station.
+    /// If it fails to connect after a number of attempts, it will switch to AP mode and reboot to allow the user to connect and configure WiFi credentials via UI.
+    ///
+    /// Call [`wait_for_connection`](Self::wait_for_connection) to wait until connection is fully established is in station mode.
     pub fn start_station(
         wifi_peripheral: esp_hal::peripherals::WIFI<'static>,
         spawner: &Spawner,
@@ -109,14 +120,17 @@ impl Wifi {
         Self { stack, tls_seed }
     }
 
+    /// Returns the embassy-net stack. Pass to [`EspHttpClient::new`](crate::http_client::EspHttpClient::new).
     pub fn stack(&self) -> Stack<'static> {
         self.stack
     }
 
+    /// Returns the TLS seed. Pass to [`EspHttpClient::new`](crate::http_client::EspHttpClient::new).
     pub fn tls_seed(&self) -> u64 {
         self.tls_seed
     }
 
+    /// Waits asynchronously until the WiFi link is up.
     pub async fn wait_for_connection(&self) -> Ipv4Cidr {
         info!("Waiting for link to be up");
         loop {

@@ -1,10 +1,4 @@
 # Compiling widgets to for ESP32
 
-- Compile existing widget for the rust `wasm32-unknown-unknown` target
-
-- Turn it into a component with `wasm-tools`:
-```bash
-wasm-tools component new <input_file> -o <output_file>
-```
-
-- Pre-compile the wasm component
+The pulley runtime does only support ahead of time (AOT) compilation on this target.
+This means the widget needs to be pre-compiled on another machine first, see the [precompiler](https://github.com/Siryll/wg_display_embedded_precompiler/tree/main) script on how to do so.

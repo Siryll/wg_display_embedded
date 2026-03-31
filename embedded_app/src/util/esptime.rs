@@ -1,3 +1,7 @@
+//! UTC wall-clock time via a HTTP sync from `timeapi.io`.
+//!
+//! Time is fetched once at startup. Subsequent calls to [`EspTime::now`] compute
+//! the current time by adding the elapsed duration since the fetch.
 use crate::runtime::http_sync;
 use crate::runtime::http_sync::BridgeMethod;
 use crate::runtime::widget::widget::clocks::Datetime;
@@ -10,12 +14,14 @@ pub struct EspTime {
     fetched_time_epoch: Option<u64>,
 }
 
+/// TimeAPI response format for easy parsing.
 #[derive(Deserialize)]
 struct TimeApiResponse {
     unix_timestamp: u64,
 }
 
 impl EspTime {
+    /// Creates a new, [`EspTime`]. Call [`fetch_time`](Self::fetch_time) before use.
     pub fn new() -> Self {
         Self {
             fetch_time_offset: None,
@@ -23,6 +29,11 @@ impl EspTime {
         }
     }
 
+    /// Fetches the current Unix timestamp from `timeapi.io`
+    /// Also gets the current time since boot to be able to compute the current time based on the elapsed time since the fetch.
+    ///
+    /// # Panics
+    /// Panics if the HTTP request fails or the response cannot be parsed.
     pub async fn fetch_time(&mut self) {
         // https://timeapi.io/swagger/index.html
         // returns unix time as json: { "unix_timestamp": 1774290895 }
@@ -45,7 +56,7 @@ impl EspTime {
         self.fetched_time_epoch = Some(parsed.unix_timestamp);
     }
 
-    /// Returns the current UTC time as `(seconds, nanoseconds)` since the Unix epoch.
+    /// Returns the current UTC time as [`Datetime`] since the Unix epoch.
     ///
     /// Used by the host function `runtime::host_api::clock_get`.
     pub fn now(&self) -> Option<Datetime> {
