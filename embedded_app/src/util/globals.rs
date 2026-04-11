@@ -1,20 +1,20 @@
 //! Application-wide shared states for:
 //! - [`Storage`]
 //! - [`Display`]
-//! - [`EspHttpClient`]
 //! - [`EspTime`]
+//! - [`WidgetStore`]
 //!
 //! All `init_*` functions **must be called exactly once** during startup in `main()`, a seccond call to any init function will cause a panic.
 use crate::display::Display;
-use crate::http_client::EspHttpClient;
 use crate::runtime::widget::widget::clocks::Datetime;
 use crate::storage::Storage;
 use crate::util::esptime::EspTime;
+use crate::widget::store::WidgetStore;
+use alloc::vec::Vec;
+use common::models::WidgetStoreItem;
 use core::cell::RefCell;
-use core::sync::atomic::{AtomicBool, Ordering};
 use critical_section::Mutex as CsMutex;
 use defmt::info;
-use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
 
@@ -22,13 +22,8 @@ type GlobalMutex<T> = Mutex<CriticalSectionRawMutex, Option<T>>;
 
 static STORAGE: GlobalMutex<Storage<'static>> = Mutex::new(None);
 static DISPLAY: GlobalMutex<Display> = Mutex::new(None);
-
-static mut NETWORK_STACK: Option<Stack<'static>> = None;
-
-static mut TLS_SEED: Option<u64> = None;
 static ESP_TIME: CsMutex<RefCell<Option<EspTime>>> = CsMutex::new(RefCell::new(None));
-
-static NETWORK_READY: AtomicBool = AtomicBool::new(false);
+static WIDGET_STORE: GlobalMutex<WidgetStore> = Mutex::new(None);
 
 pub async fn init_storage(storage: Storage<'static>) {
     let mut guard = STORAGE.lock().await;
@@ -74,27 +69,6 @@ pub async fn console_println(text: &str) {
     with_display(|display| display.console_println(text)).await;
 }
 
-pub fn init_network(stack: Stack<'static>, tls_seed: u64) {
-    unsafe {
-        NETWORK_STACK = Some(stack);
-        TLS_SEED = Some(tls_seed);
-    }
-    NETWORK_READY.store(true, Ordering::Release);
-    info!("Global network stack initialized");
-}
-
-pub fn network_stack() -> Stack<'static> {
-    unsafe { NETWORK_STACK.expect("Network not initialized! Call init_network() first") }
-}
-
-pub fn tls_seed() -> u64 {
-    unsafe { TLS_SEED.expect("Network not initialized! Call init_network() first") }
-}
-
-pub fn http_client() -> EspHttpClient {
-    EspHttpClient::new(network_stack(), tls_seed())
-}
-
 pub fn init_time(time: EspTime) {
     critical_section::with(|cs| {
         let mut guard = ESP_TIME.borrow_ref_mut(cs);
@@ -121,4 +95,28 @@ where
 
 pub fn now() -> Option<Datetime> {
     with_time(EspTime::now)
+}
+
+pub async fn init_store(store: WidgetStore) {
+    let mut guard = WIDGET_STORE.lock().await;
+    if guard.is_some() {
+        panic!("WidgetStore already initialized! Call init_store() only once");
+    }
+    *guard = Some(store);
+    info!("Global widget store initialized");
+}
+
+pub async fn with_store<F, R>(f: F) -> R
+where
+    F: FnOnce(&WidgetStore) -> R,
+{
+    let guard = WIDGET_STORE.lock().await;
+    let store = guard
+        .as_ref()
+        .expect("WidgetStore not initialized! Call init_store() first");
+    f(store)
+}
+
+pub async fn get_store_items() -> Vec<WidgetStoreItem> {
+    with_store(|store| store.get_items().clone()).await
 }

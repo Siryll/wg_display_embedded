@@ -53,8 +53,8 @@ use picoserve::{
     routing::{self, parse_path_segment},
 };
 
+use crate::util::globals;
 use crate::widget::manager::WidgetManager;
-use crate::{util::globals, widget::store::WidgetStore};
 use common::models::WidgetStoreItem;
 use common::models::{InstallAction, SystemConfiguration, WifiCredentials, WifiModeResponse};
 
@@ -257,12 +257,7 @@ impl AppBuilder for Application {
 // TODO: create WidetStore instance in globals and init the store on boot that unnecessary wait time can be avoided
 /// gets and returns all widget store items as JSON.
 async fn get_store_items() -> HandlerResult<JsonStringResponse> {
-    let mut store = WidgetStore::new();
-    store
-        .fetch_from_store()
-        .await
-        .map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
-    let json = serde_json::to_string(store.get_items())
+    let json = serde_json::to_string(&globals::get_store_items().await)
         .map_err(|_| Error::new("Failed to serialize widget store"))?;
     info!("Serving store items: {}", json.as_str());
     Ok(JsonStringResponse(json))
@@ -326,13 +321,8 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult
     let (download_url, description) = match action {
         InstallAction::FromUrl(url) => (url, alloc::string::String::from("No description")),
         InstallAction::FromStoreItemName(name) => {
-            let mut store = WidgetStore::new();
-            store
-                .fetch_from_store()
-                .await
-                .map_err(|e| Error::new(format!("Failed to fetch widget store: {:?}", e)))?;
-            let item = store
-                .get_items()
+            let store_items = globals::get_store_items().await;
+            let item = store_items
                 .iter()
                 .find(|item: &&WidgetStoreItem| item.name == name)
                 .ok_or_else(|| Error::new(format!("Widget '{}' not found", name)))?;

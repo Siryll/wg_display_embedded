@@ -12,11 +12,11 @@
 //! ```
 //!
 //! Timeout on both sides: **30 seconds**.
-use crate::runtime::widget::widget::http;
-use crate::util::globals;
+use crate::{http_client::EspHttpClient, runtime::widget::widget::http};
 use alloc::string::String;
 use alloc::vec::Vec;
 use defmt::{error, info};
+use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::{Duration, with_timeout};
@@ -160,8 +160,9 @@ pub fn http_request_sync(
 /// Async task that handles HTTP requests from the channel
 /// Run on Core 0.
 #[embassy_executor::task]
-pub async fn http_handler_task() {
+pub async fn http_handler_task(stack: Stack<'static>, _tls_seed: u64) {
     defmt::info!("HTTP handler task started");
+    let http_client = EspHttpClient::new(stack, _tls_seed);
 
     loop {
         defmt::debug!("HTTP handler: waiting for request...");
@@ -177,7 +178,6 @@ pub async fn http_handler_task() {
 
         // Get HTTP client and execute request
         defmt::info!("Created HTTP request object, executing...");
-        let http_client = globals::http_client();
 
         defmt::info!("HTTP handler: executing request");
         let response_result = async {

@@ -130,29 +130,7 @@ async fn main(spawner: Spawner) -> ! {
     // start in station mode
     if !force_ap_mode {
         if let (Ok(ssid), Ok(password)) = (ssid, password) {
-            globals::console_println("Starting in station mode").await;
-            let _ =
-                globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
-            let wifi = Wifi::start_station(wifi_peripheral, &spawner, ssid, password, false);
-            let ip = wifi.wait_for_connection().await;
-            let _ =
-                globals::with_storage(|storage| storage.config_set("device_ip", &ip.to_string()))
-                    .await;
-            globals::init_network(wifi.stack(), wifi.tls_seed());
-
-            // -- Server setup --
-            http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
-
-            // -- Spawn HTTP handler task for widget runtime --
-            spawner
-                .spawn(runtime::http_sync::http_handler_task())
-                .expect("Failed to spawn HTTP handler task");
-            info!("HTTP handler task spawned on core0 executor");
-
-            let mut esp_time = EspTime::new();
-            esp_time.fetch_time().await;
-            globals::init_time(esp_time);
-            info!("Global time synced from time API");
+            start_station_mode(wifi_peripheral, &spawner, ssid, password).await;
 
             // -- Init and start widget runner on second core --
             static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
@@ -177,26 +155,11 @@ async fn main(spawner: Spawner) -> ! {
             );
         } else {
             info!("WiFi credentials not configured, switching to AP mode");
-            globals::console_println("No wifi configured, starting in AP mode").await;
-            let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
-            let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
-            globals::init_network(wifi.stack(), wifi.tls_seed());
-
-            // -- Server setup --
-            http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
-            globals::console_println("Connect to 'WG-Display-AP'").await;
-            globals::console_println("and open 192.168.2.1").await;
+            start_ap_mode(wifi_peripheral, &spawner).await;
         }
     } else {
         info!("WiFi mode is set to AP, starting in AP mode");
-        globals::console_println("Starting in AP mode").await;
-        let wifi = Wifi::start_station(wifi_peripheral, &spawner, "".into(), "".into(), true);
-        globals::init_network(wifi.stack(), wifi.tls_seed());
-
-        // -- Server setup --
-        http_server::start(wifi.stack(), wifi.tls_seed(), &spawner);
-        globals::console_println("Connect to 'WG-Display-AP'").await;
-        globals::console_println("and open 192.168.2.1").await;
+        start_ap_mode(wifi_peripheral, &spawner).await;
     }
 
     // TODO: Spawn some tasks
@@ -205,6 +168,55 @@ async fn main(spawner: Spawner) -> ! {
     loop {
         Timer::after(Duration::from_secs(100)).await;
     }
+}
+
+async fn start_ap_mode(wifi_peripheral: esp_hal::peripherals::WIFI<'static>, spawner: &Spawner) {
+    globals::console_println("No wifi configured, starting in AP mode").await;
+    let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
+    let wifi = Wifi::start_station(wifi_peripheral, spawner, "".into(), "".into(), true);
+
+    // -- Server setup --
+    http_server::start(wifi.stack(), wifi.tls_seed(), spawner);
+    globals::console_println("Connect to 'WG-Display-AP'").await;
+    globals::console_println("and open 192.168.2.1").await;
+}
+
+async fn start_station_mode(
+    wifi_peripheral: esp_hal::peripherals::WIFI<'static>,
+    spawner: &Spawner,
+    ssid: alloc::string::String,
+    password: alloc::string::String,
+) {
+    globals::console_println("Starting in station mode").await;
+    let _ = globals::with_storage(|storage| storage.config_set("wifi_mode", "station")).await;
+    let wifi = Wifi::start_station(wifi_peripheral, spawner, ssid, password, false);
+    let ip = wifi.wait_for_connection().await;
+    let _ = globals::with_storage(|storage| storage.config_set("device_ip", &ip.to_string())).await;
+
+    // -- Spawn HTTP handler task for widget runtime --
+    spawner
+        .spawn(runtime::http_sync::http_handler_task(
+            wifi.stack(),
+            wifi.tls_seed(),
+        ))
+        .expect("Failed to spawn HTTP handler task");
+    info!("HTTP handler task spawned on core0 executor");
+
+    // init widget store
+    let mut widget_store = widget::store::WidgetStore::new();
+    widget_store
+        .fetch_from_store()
+        .await
+        .expect("Failed to fetch widget store");
+    globals::init_store(widget_store).await;
+
+    // -- Server setup --
+    http_server::start(wifi.stack(), wifi.tls_seed(), spawner);
+
+    let mut esp_time = EspTime::new();
+    esp_time.fetch_time().await;
+    globals::init_time(esp_time);
+    info!("Global time synced from time API");
 }
 
 /// Renderer task look that is spawned on the second core
