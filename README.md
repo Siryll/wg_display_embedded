@@ -44,5 +44,10 @@ make build
 
 Flash to ESP:
 ```bash
-make flash
+make run
+```
+
+To use the larger font use:
+```bash
+make run-large-font
 ```
