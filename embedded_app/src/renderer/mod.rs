@@ -11,7 +11,8 @@ use embedded_graphics::Drawable;
 use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::geometry::Size;
 use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::mono_font::iso_8859_1::FONT_8X13;
+use embedded_graphics::mono_font::MonoFont;
+use embedded_graphics::mono_font::iso_8859_1::{FONT_8X13, FONT_9X18_BOLD};
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
 use embedded_graphics::primitives::{Line, Primitive, PrimitiveStyle, Rectangle};
@@ -28,12 +29,47 @@ const RENDER_TICK_MS: u64 = 1000;
 const DISPLAY_WIDTH: u32 = 320;
 const DISPLAY_HEIGHT: u32 = 240;
 const DISPLAY_PIXELS: usize = (DISPLAY_WIDTH as usize) * (DISPLAY_HEIGHT as usize);
-const DISPLAY_WIDTH_CHARS: usize = 39;
-const HEADER_HEIGHT: i32 = 18;
 const ACCENT_WIDTH: i32 = 3;
 const LEFT_PADDING: i32 = ACCENT_WIDTH + 5;
-const LINE_HEIGHT: i32 = 14;
-const WIDGET_GAP: i32 = 6; // vertical space between widgets
+
+// change to true to enable larger font, might be changed in the future to be configurable via web ui
+const USE_LARGE_FONT: bool = false;
+
+fn active_font() -> &'static MonoFont<'static> {
+    if USE_LARGE_FONT {
+        &FONT_9X18_BOLD
+    } else {
+        &FONT_8X13
+    }
+}
+
+fn line_height() -> i32 {
+    if USE_LARGE_FONT {
+        20
+    } else {
+        14
+    }
+}
+
+fn header_height() -> i32 {
+    if USE_LARGE_FONT {
+        24
+    } else {
+        18
+    }
+}
+
+fn widget_gap() -> i32 {
+    if USE_LARGE_FONT {
+        8
+    } else {
+        6
+    }
+}
+
+fn display_width_chars() -> usize {
+    (DISPLAY_WIDTH as usize / active_font().character_size.width as usize).saturating_sub(1)
+}
 
 struct WasmWidget {
     name: String,
@@ -55,6 +91,7 @@ impl Renderer {
     pub fn new() -> Self {
         Self {
             widgets: Vec::new(),
+            // TODO: maybe make static  or use vec!
             framebuffer: Box::new([Rgb565::BLACK; DISPLAY_PIXELS]),
             background_color: Rgb565::BLACK,
             runtime: Runtime::new(),
@@ -168,6 +205,11 @@ impl Renderer {
 
     /// Renders the screen layout, writes into a framebuffer to avoid screen flickering.
     async fn render_layout(&mut self) {
+        let font = active_font();
+        let line_height = line_height();
+        let header_height = header_height();
+        let widget_gap = widget_gap();
+
         let mut fb = FrameBuf::new(
             self.framebuffer.as_mut(),
             DISPLAY_WIDTH as usize,
@@ -178,35 +220,35 @@ impl Renderer {
         // header bar
         Rectangle::new(
             Point::new(0, 0),
-            Size::new(DISPLAY_WIDTH, HEADER_HEIGHT as u32),
+            Size::new(DISPLAY_WIDTH, header_height as u32),
         )
         .into_styled(PrimitiveStyle::with_fill(Rgb565::new(1, 8, 16)))
         .draw(&mut fb)
         .ok();
 
-        let header_style = MonoTextStyle::new(&FONT_8X13, Rgb565::WHITE);
+        let header_style = MonoTextStyle::new(font, Rgb565::WHITE);
         draw_text(
             &mut fb,
             &format!("WG Display  {}", self.ip_address),
             4,
-            HEADER_HEIGHT - 4,
+            header_height - 4,
             &header_style,
         );
 
         // divider
         Line::new(
-            Point::new(0, HEADER_HEIGHT),
-            Point::new(DISPLAY_WIDTH as i32 - 1, HEADER_HEIGHT),
+            Point::new(0, header_height),
+            Point::new(DISPLAY_WIDTH as i32 - 1, header_height),
         )
         .into_styled(PrimitiveStyle::with_stroke(Rgb565::CYAN, 1))
         .draw(&mut fb)
         .ok();
 
         // widgets
-        let name_style = MonoTextStyle::new(&FONT_8X13, Rgb565::CYAN);
-        let output_style = MonoTextStyle::new(&FONT_8X13, Rgb565::YELLOW);
+        let name_style = MonoTextStyle::new(font, Rgb565::CYAN);
+        let output_style = MonoTextStyle::new(font, Rgb565::YELLOW);
 
-        let mut y = HEADER_HEIGHT + LINE_HEIGHT + 2;
+        let mut y = header_height + line_height + 2;
         let widget_count = self.widgets.len();
 
         for (i, widget) in self.widgets.iter().enumerate() {
@@ -216,14 +258,17 @@ impl Renderer {
             }
 
             // accent bar
-            Rectangle::new(Point::new(0, y - 11), Size::new(ACCENT_WIDTH as u32, 13))
+            Rectangle::new(
+                Point::new(0, y - (line_height - 3)),
+                Size::new(ACCENT_WIDTH as u32, (line_height - 1) as u32),
+            )
                 .into_styled(PrimitiveStyle::with_fill(Rgb565::CYAN))
                 .draw(&mut fb)
                 .ok();
 
             // widget name
             draw_text(&mut fb, &widget.name, LEFT_PADDING, y, &name_style);
-            y += LINE_HEIGHT;
+            y += line_height;
 
             if y >= DISPLAY_HEIGHT as i32 {
                 break;
@@ -235,13 +280,13 @@ impl Renderer {
                     break;
                 }
                 draw_text(&mut fb, line, LEFT_PADDING, y, &output_style);
-                y += LINE_HEIGHT;
+                y += line_height;
             }
 
             // thin separator between widgets
             if i + 1 < widget_count {
-                let sep_y = y - LINE_HEIGHT + 6; // = y - 8: below last output, above next title
-                if sep_y > HEADER_HEIGHT && sep_y < DISPLAY_HEIGHT as i32 {
+                let sep_y = y - line_height + (line_height / 2 - 1);
+                if sep_y > header_height && sep_y < DISPLAY_HEIGHT as i32 {
                     Line::new(
                         Point::new(LEFT_PADDING, sep_y),
                         Point::new(DISPLAY_WIDTH as i32 - LEFT_PADDING, sep_y),
@@ -250,7 +295,7 @@ impl Renderer {
                     .draw(&mut fb)
                     .ok();
                 }
-                y += WIDGET_GAP;
+                y += widget_gap;
             }
         }
 
@@ -288,10 +333,11 @@ fn draw_text<T>(target: &mut T, text: &str, x: i32, y: i32, style: &MonoTextStyl
 where
     T: DrawTarget<Color = Rgb565>,
 {
-    let truncated = if text.len() > DISPLAY_WIDTH_CHARS {
+    let max_chars = display_width_chars();
+    let truncated = if text.len() > max_chars {
         let mut s = text
             .chars()
-            .take(DISPLAY_WIDTH_CHARS.saturating_sub(3))
+            .take(max_chars.saturating_sub(3))
             .collect::<String>();
         s.push_str("...");
         s

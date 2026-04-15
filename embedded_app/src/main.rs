@@ -165,6 +165,7 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Spawn some tasks
     // let _ = spawner;
 
+    // TODO: button for move to AP mode.
     loop {
         Timer::after(Duration::from_secs(100)).await;
     }
