@@ -10,8 +10,8 @@ use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::Drawable;
 use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::geometry::Size;
-use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::mono_font::MonoFont;
+use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::mono_font::iso_8859_1::{FONT_8X13, FONT_9X18_BOLD};
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::{Point, RgbColor};
@@ -33,7 +33,7 @@ const ACCENT_WIDTH: i32 = 3;
 const LEFT_PADDING: i32 = ACCENT_WIDTH + 5;
 
 // change to true to enable larger font, might be changed in the future to be configurable via web ui
-const USE_LARGE_FONT: bool = false;
+const USE_LARGE_FONT: bool = cfg!(feature = "large-font");
 
 fn active_font() -> &'static MonoFont<'static> {
     if USE_LARGE_FONT {
@@ -44,27 +44,15 @@ fn active_font() -> &'static MonoFont<'static> {
 }
 
 fn line_height() -> i32 {
-    if USE_LARGE_FONT {
-        20
-    } else {
-        14
-    }
+    if USE_LARGE_FONT { 20 } else { 14 }
 }
 
 fn header_height() -> i32 {
-    if USE_LARGE_FONT {
-        24
-    } else {
-        18
-    }
+    if USE_LARGE_FONT { 24 } else { 18 }
 }
 
 fn widget_gap() -> i32 {
-    if USE_LARGE_FONT {
-        8
-    } else {
-        6
-    }
+    if USE_LARGE_FONT { 8 } else { 6 }
 }
 
 fn display_width_chars() -> usize {
@@ -262,9 +250,9 @@ impl Renderer {
                 Point::new(0, y - (line_height - 3)),
                 Size::new(ACCENT_WIDTH as u32, (line_height - 1) as u32),
             )
-                .into_styled(PrimitiveStyle::with_fill(Rgb565::CYAN))
-                .draw(&mut fb)
-                .ok();
+            .into_styled(PrimitiveStyle::with_fill(Rgb565::CYAN))
+            .draw(&mut fb)
+            .ok();
 
             // widget name
             draw_text(&mut fb, &widget.name, LEFT_PADDING, y, &name_style);

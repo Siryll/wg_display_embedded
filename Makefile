@@ -1,9 +1,5 @@
 .PHONY: all clean frontend app build flash monitor help
 
-build: build
-
-run: flash
-
 help:
 	@echo "ESP32 WG Display Build System"
 	@echo ""
@@ -49,3 +45,7 @@ clean:
 	@echo "Cleaning frontend build artifacts..."
 	cd frontend && cargo clean && rm -rf dist node_modules/.cache
 	@echo "Clean complete"
+
+run-large-font:
+	@echo "Building with large font feature..."
+	cd embedded_app && cargo run --release --features large-font
