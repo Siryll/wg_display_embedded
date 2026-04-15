@@ -413,7 +413,10 @@ async fn post_widget_config(
         widget.json_config = config_string;
     } else {
         error!("Widget not found: {}", widget_name.as_str());
-        return Err(Error::new(format!("Widget '{}' not found", widget_name.as_str())));
+        return Err(Error::new(format!(
+            "Widget '{}' not found",
+            widget_name.as_str()
+        )));
     }
 
     globals::with_storage(|storage| storage.save_system_config(&system_config))
