@@ -40,27 +40,6 @@ impl IntoResponse for Error {
 
 pub type HandlerResult<T> = Result<T, Error>;
 
-/// Implementation for serving HTML responses, used by [`http_server::get_widget_config`](crate::http_server::get_widget_config).
-pub struct HtmlResponse(pub String);
-
-impl IntoResponse for HtmlResponse {
-    async fn write_to<
-        R: picoserve::io::Read,
-        W: picoserve::response::ResponseWriter<Error = R::Error>,
-    >(
-        self,
-        connection: picoserve::response::Connection<'_, R>,
-        response_writer: W,
-    ) -> Result<picoserve::ResponseSent, W::Error> {
-        (
-            ("Content-Type", "text/html; charset=utf-8"),
-            self.0.as_str(),
-        )
-            .write_to(connection, response_writer)
-            .await
-    }
-}
-
 /// Implementation for serving JSON responses of unknown structure.
 pub struct JsonStringResponse(pub String);
 
