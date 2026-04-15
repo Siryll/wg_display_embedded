@@ -49,7 +49,7 @@ use esp_hal::system::software_reset;
 use picoserve::{
     AppBuilder, AppRouter, Router,
     extract::JsonWithUnescapeBufferSize,
-    response::{File, IntoResponse, Json},
+    response::{File, Json},
     routing::{self, parse_path_segment},
 };
 
@@ -61,7 +61,7 @@ use common::models::{InstallAction, SystemConfiguration, WifiCredentials, WifiMo
 mod custom_types;
 mod frontend;
 
-use custom_types::{ConfigWrapper, Error, HandlerResult, HtmlResponse, JsonStringResponse};
+use custom_types::{ConfigWrapper, Error, HandlerResult, JsonStringResponse};
 
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
@@ -116,14 +116,18 @@ impl AppBuilder for Application {
                     "/widget_configuration",
                     parse_path_segment::<alloc::string::String>(),
                 ),
-                routing::get(get_widget_config),
+                routing::get_service(File::with_content_type_and_headers(
+                    "text/html",
+                    frontend::WIDGET_CONFIG_HTML,
+                    &[INDEX_CACHE_HEADER],
+                )),
             )
             // routes to serve frontend files
             .route(
                 "/",
                 routing::get_service(File::with_content_type_and_headers(
                     "text/html",
-                    frontend::INDEX_HTML.as_bytes(),
+                    frontend::INDEX_HTML,
                     &[INDEX_CACHE_HEADER],
                 )),
             )
@@ -207,10 +211,14 @@ impl AppBuilder for Application {
                     &[ASSET_HEADER],
                 )),
             )
-            .route(
-                "/assets/html/widget_config.html",
-                routing::get_service(File::html(frontend::WIDGET_CONFIG_HTML)),
-            )
+            // .route(
+            //     "/assets/html/widget_config.html",
+            //     routing::get_service(File::with_content_type_and_headers(
+            //         "text/html",
+            //         frontend::WIDGET_CONFIG_HTML,
+            //         &[INDEX_CACHE_HEADER],
+            //     )),
+            // )
             .route(
                 "/assets/fonts/glyphicons-halflings-regular.eot",
                 routing::get_service(File::with_content_type_and_headers(
@@ -332,8 +340,7 @@ async fn post_install_widget(Json(action): Json<InstallAction>) -> HandlerResult
     info!("Installing widget from URL {}", download_url.as_str());
     WidgetManager::install_widget(download_url.as_str(), &description)
         .await
-        .map_err(|e| Error::new(format!("Failed to install widget: {:?}", e)))?;
-    Ok(())
+        .map_err(|e| Error::new(format!("Failed to install widget: {:?}", e)))
 }
 
 /// receives an updated system configuration from the frontend and saves it to NVS. The config is only saved if there are changes to avoid flash wear.
@@ -406,21 +413,15 @@ async fn post_widget_config(
         widget.json_config = config_string;
     } else {
         error!("Widget not found: {}", widget_name.as_str());
+        return Err(Error::new(format!(
+            "Widget '{}' not found",
+            widget_name.as_str()
+        )));
     }
 
     globals::with_storage(|storage| storage.save_system_config(&system_config))
         .await
         .map_err(|e| Error::new(format!("Failed to save widget config: {:?}", e)))
-}
-
-/// returns the HTML page that makes up the widget configuration UI
-async fn get_widget_config(widget_name: alloc::string::String) -> impl IntoResponse {
-    info!(
-        "Serving widget configuration page for: {}",
-        widget_name.as_str()
-    );
-    let html = frontend::WIDGET_CONFIG_HTML.replace("{{WIDGET_NAME}}", widget_name.as_str());
-    HtmlResponse(html)
 }
 
 pub struct WebApp {

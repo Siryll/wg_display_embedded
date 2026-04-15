@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <title id="widgetName">{{WIDGET_NAME}}</title>
+    <title>Widget Configuration</title>
     <link rel="stylesheet" type="text/css" href="/assets/css/bootstrap.css" />
 </head>
 
@@ -15,7 +15,13 @@
     <script type="text/javascript" src="/assets/js/underscore.js"></script>
     <script type="text/javascript" src="/assets/js/jsonform.js"></script>
     <script type="text/javascript">
-        let widgetName = $('#widgetName').text()
+        const widgetNameFromPath = decodeURIComponent(
+            window.location.pathname
+                .split('/')
+                .filter(Boolean)
+                .pop() || ''
+        )
+        let widgetName = widgetNameFromPath
         let schema = fetch('/config_schema/' + encodeURI(widgetName))
             .then(response => response.json())
             .then(schema => {
@@ -27,34 +33,37 @@
                 $('form').jsonForm({
                     schema: schema,
                     validate: false,
-                    onSubmit: async function (errors, values) {
-                        if (errors) {
-                            $('#res').html('<pre>' + JSON.stringify(errors) + '</pre>')
-                        } else {
-                            const payload = {
-                                config: JSON.stringify(values)
-                            }
-                            try {
-                                const response = await fetch('/widget_config/' + encodeURIComponent(widgetName), {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify(payload)
-                                })
+                    submitEvent: null
+                })
 
-                                if (!response.ok) {
-                                    const errorText = await response.text()
-                                    throw new Error(errorText || ('HTTP ' + response.status))
-                                }
+                // dont rely on json form submit which seems to be buggy
+                $('form').on('submit', async function (event) {
+                    event.preventDefault()
 
-                                window.location.href = '/'
-                            } catch (error) {
-                                $('#res')
-                                    .addClass('alert-danger')
-                                    .html('<pre>Failed to save config: ' + error + '</pre>')
-                            }
+                    const values = $('form').jsonFormValue()
+                    const payload = {
+                        config: JSON.stringify(values)
+                    }
+
+                    try {
+                        const response = await fetch('/widget_config/' + encodeURIComponent(widgetName), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
+                        })
+
+                        if (!response.ok) {
+                            const errorText = await response.text()
+                            throw new Error(errorText || ('HTTP ' + response.status))
                         }
+
+                        window.location.href = '/'
+                    } catch (error) {
+                        $('#res')
+                            .addClass('alert-danger')
+                            .html('<pre>Failed to save config: ' + error + '</pre>')
                     }
                 })
             })

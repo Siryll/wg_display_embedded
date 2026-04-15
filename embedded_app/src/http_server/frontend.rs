@@ -1,5 +1,5 @@
 //! List of static frontend assets that are embedded into the compiled binary.
-pub const INDEX_HTML: &str = include_str!("../../../frontend/dist/index.html");
+pub const INDEX_HTML: &[u8] = include_bytes!("../../../frontend/dist/index.html");
 pub const FRONTEND_JS: &[u8] = include_bytes!("../../../frontend/dist/frontend.js");
 pub const OUTPUT_CSS: &[u8] = include_bytes!("../../../frontend/dist/output.css");
 pub const BOOTSTRAP_CSS: &[u8] = include_bytes!("../../../frontend/dist/assets/css/bootstrap.css");
@@ -10,8 +10,8 @@ pub const JSONFORM_DEFAULTS_JS: &[u8] =
     include_bytes!("../../../frontend/dist/assets/js/jsonform-defaults.js");
 pub const JSONFORM_SPLIT_JS: &[u8] =
     include_bytes!("../../../frontend/dist/assets/js/jsonform-split.js");
-pub const WIDGET_CONFIG_HTML: &str =
-    include_str!("../../../frontend/dist/assets/html/widget_config.html");
+pub const WIDGET_CONFIG_HTML: &[u8] =
+    include_bytes!("../../../frontend/dist/assets/html/widget_config.html");
 pub const LOGO_PNG: &[u8] = include_bytes!("../../../frontend/dist/assets/logo.png");
 pub const FRONTEND_WASM_GZ: &[u8] = include_bytes!("../../../frontend/dist/frontend_bg.wasm.gz");
 pub const FONT_GLYPHS_EOT: &[u8] =
