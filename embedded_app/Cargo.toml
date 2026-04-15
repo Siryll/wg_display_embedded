@@ -9,6 +9,10 @@ version      = "0.1.0"
 name = "embedded_wg_display"
 # path = "./src/bin/main.rs"
 
+[features]
+default = []
+large-font = []
+
 [dependencies]
 common = { path = "../common" }
 esp-hal = { version = "~1.0.0", features = ["defmt", "esp32s3", "unstable", "psram"] }
