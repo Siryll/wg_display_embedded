@@ -24,31 +24,27 @@ pub fn home() -> Html {
         // Initializes the system configuration
         let config_clone = system_config.clone();
         let error = error.clone();
-        use_effect_with(
-            (),
-            move |_| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    let response = Request::get("/system_config").send().await;
-                    let Ok(response) = response else {
-                        error.set(Some("Failed to load system config".to_string()));
-                        return;
-                    };
+        use_effect_with((), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                let response = Request::get("/system_config").send().await;
+                let Ok(response) = response else {
+                    error.set(Some("Failed to load system config".to_string()));
+                    return;
+                };
 
-                    let received_config = response.json::<SystemConfiguration>().await;
-                    let Ok(received_config) = received_config else {
-                        error.set(Some("Failed to parse system config".to_string()));
-                        return;
-                    };
+                let received_config = response.json::<SystemConfiguration>().await;
+                let Ok(received_config) = received_config else {
+                    error.set(Some("Failed to parse system config".to_string()));
+                    return;
+                };
 
-                    log!(format!(
-                        "Initialized with system config: {received_config:?}"
-                    ));
-                    config_clone
-                        .dispatch(SystemConfigurationAction::SetInitialConfig(received_config));
-                });
-                || {}
-            },
-        );
+                log!(format!(
+                    "Initialized with system config: {received_config:?}"
+                ));
+                config_clone.dispatch(SystemConfigurationAction::SetInitialConfig(received_config));
+            });
+            || {}
+        });
     }
 
     let on_deinstall_widget = {

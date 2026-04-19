@@ -17,20 +17,17 @@ pub fn config_schema(props: &Props) -> Html {
     {
         let widget_name = props.widget_name.clone();
         let state_clone = state.clone();
-        use_effect_with(
-            (),
-            move |_| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    let response = Request::get(format!("/config_schema/{}", widget_name).as_str())
-                        .send()
-                        .await
-                        .expect("Could not load config schema");
-                    clipboard.write_text(response.text().await.unwrap());
-                    state_clone.set("The schema has been copied to your clipboard.".into());
-                });
-                || {}
-            },
-        );
+        use_effect_with((), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                let response = Request::get(format!("/config_schema/{}", widget_name).as_str())
+                    .send()
+                    .await
+                    .expect("Could not load config schema");
+                clipboard.write_text(response.text().await.unwrap());
+                state_clone.set("The schema has been copied to your clipboard.".into());
+            });
+            || {}
+        });
     }
 
     let get_title = || format!("Config schema of {}", props.widget_name.as_str());

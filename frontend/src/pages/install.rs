@@ -84,14 +84,11 @@ pub fn install() -> Html {
     {
         let widget_store_items = widget_store_items.clone();
         let error = error.clone();
-        use_effect_with(
-            (),
-            move |_| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    load_store_items(widget_store_items, error).await;
-                });
-            },
-        );
+        use_effect_with((), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                load_store_items(widget_store_items, error).await;
+            });
+        });
     }
 
     let state = installation_data.clone();
