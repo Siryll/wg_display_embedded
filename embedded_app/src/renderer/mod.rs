@@ -25,7 +25,7 @@ use crate::runtime::Runtime;
 use crate::util::globals;
 
 /// Constant for the delay between widget update checks
-const RENDER_TICK_MS: u64 = 1000;
+const RENDER_TICK_MS: Duration = Duration::from_millis(1000);
 const DISPLAY_WIDTH: u32 = 320;
 const DISPLAY_HEIGHT: u32 = 240;
 const DISPLAY_PIXELS: usize = (DISPLAY_WIDTH as usize) * (DISPLAY_HEIGHT as usize);
@@ -136,7 +136,11 @@ impl Renderer {
         info!("Renderer initialized {} widgets", self.widgets.len());
         self.render_layout().await;
 
+        let mut loop_time: Instant;
+
         loop {
+            // set loop time
+            loop_time = Instant::now();
             // update config if changes were made in the web ui
             if let Some(new_config) =
                 globals::with_storage(|storage| storage.get_system_config_change()).await
@@ -149,7 +153,11 @@ impl Renderer {
             self.update_widgets().await;
             self.render_layout().await;
 
-            Timer::after(Duration::from_millis(RENDER_TICK_MS)).await;
+            // wait for 1 second minus the elapes time in this loop
+            // will skip if loop took longer than 1 second
+            if let Some(loop_delay) = RENDER_TICK_MS.checked_sub(loop_time.elapsed()) {
+                Timer::after(loop_delay).await;
+            }
         }
     }
 
