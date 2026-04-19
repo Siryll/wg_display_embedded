@@ -15,8 +15,7 @@ use esp_alloc as _;
 use esp_hal::rng::Rng;
 use esp_hal::system::software_reset;
 use esp_radio::wifi::{
-    AccessPointConfig, AuthMethod, ClientConfig, ModeConfig, WifiController, WifiDevice,
-    WifiEvent,
+    AccessPointConfig, AuthMethod, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent,
     WifiStaState,
 };
 

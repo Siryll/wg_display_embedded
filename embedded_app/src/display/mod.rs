@@ -46,19 +46,20 @@ pub struct Display {
     console_y: i32,
 }
 
+pub struct DisplayPeripherals {
+    pub spi2: peripherals::SPI2<'static>,
+    pub dma_ch0: peripherals::DMA_CH0<'static>,
+    pub gpio4: peripherals::GPIO4<'static>,
+    pub gpio5: peripherals::GPIO5<'static>,
+    pub gpio6: peripherals::GPIO6<'static>,
+    pub gpio7: peripherals::GPIO7<'static>,
+    pub gpio47: peripherals::GPIO47<'static>,
+    pub gpio48: peripherals::GPIO48<'static>,
+}
+
 impl Display {
-    #[allow(clippy::too_many_arguments)]
     /// Initialize the display, needs all peripherals as seperate arguements since [`Storage`](crate::storage::Storage) and [`Wifi`](crate::wifi::Wifi) also rely on peripherals.
-    pub fn new(
-        spi2: peripherals::SPI2<'static>,
-        dma_ch0: peripherals::DMA_CH0<'static>,
-        gpio4: peripherals::GPIO4<'static>,
-        gpio5: peripherals::GPIO5<'static>,
-        gpio6: peripherals::GPIO6<'static>,
-        gpio7: peripherals::GPIO7<'static>,
-        gpio47: peripherals::GPIO47<'static>,
-        gpio48: peripherals::GPIO48<'static>,
-    ) -> Self {
+    pub fn new(display_peripherals: DisplayPeripherals) -> Self {
         // direct memory access (dma) for SPI transfers
         let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = dma_buffers!(8912);
         let dma_rx_buf = DmaRxBuf::new(rx_descriptors, rx_buffer).unwrap();
@@ -66,29 +67,37 @@ impl Display {
 
         // create SPI interface with DMA
         let spi = Spi::<Blocking>::new(
-            spi2,
+            display_peripherals.spi2,
             esp_hal::spi::master::Config::default()
                 .with_frequency(Rate::from_mhz(40))
                 .with_mode(esp_hal::spi::Mode::_0),
         )
         .unwrap()
-        .with_sck(gpio7)
-        .with_mosi(gpio6)
-        .with_dma(dma_ch0)
+        .with_sck(display_peripherals.gpio7)
+        .with_mosi(display_peripherals.gpio6)
+        .with_dma(display_peripherals.dma_ch0)
         .with_buffers(dma_rx_buf, dma_tx_buf);
 
-        let cs_output = Output::new(gpio5, Level::High, OutputConfig::default());
+        let cs_output = Output::new(
+            display_peripherals.gpio5,
+            Level::High,
+            OutputConfig::default(),
+        );
         let spi_delay = Delay::new();
         let spi_device = ExclusiveDevice::new(spi, cs_output, spi_delay).unwrap();
 
-        let lcd_dc = Output::new(gpio4, Level::Low, OutputConfig::default());
+        let lcd_dc = Output::new(
+            display_peripherals.gpio4,
+            Level::Low,
+            OutputConfig::default(),
+        );
         let buffer: &'static mut [u8; 512] = Box::leak(Box::new([0_u8; 512]));
         let di = SpiInterface::new(spi_device, lcd_dc, buffer);
 
         // from https://github.com/georgik/esp32-conways-game-of-life-rs/blob/main/esp32-s3-box-3/src/main.rs
         // needs .with_drive_mode(DriveMode::OpenDrain) for some reason
         let reset = Output::new(
-            gpio48,
+            display_peripherals.gpio48,
             Level::High,
             OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
         );
@@ -113,7 +122,11 @@ impl Display {
         display.clear(Rgb565::BLACK).unwrap();
 
         // enable backlight
-        let mut backlight = Output::new(gpio47, Level::High, OutputConfig::default());
+        let mut backlight = Output::new(
+            display_peripherals.gpio47,
+            Level::High,
+            OutputConfig::default(),
+        );
         backlight.set_high();
 
         info!("Display initialized successfully");
