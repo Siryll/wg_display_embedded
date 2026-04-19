@@ -65,7 +65,8 @@ pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> 
     {
         let show_form = show_form.clone();
         let error = props.error.clone();
-        use_effect_with_deps(
+        use_effect_with(
+            (),
             move |_| {
                 wasm_bindgen_futures::spawn_local(async move {
                     match is_ap_mode().await {
@@ -78,7 +79,6 @@ pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> 
                 });
                 || {}
             },
-            (),
         );
     }
 

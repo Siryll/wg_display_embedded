@@ -1,5 +1,5 @@
 use gloo_net::http::Request;
-use yew::{AttrValue, Html, Properties, function_component, html, use_effect_with_deps, use_state};
+use yew::{AttrValue, Html, Properties, function_component, html, use_effect_with, use_state};
 use yew_hooks::use_clipboard;
 
 use crate::components::divider::DividerComponent;
@@ -17,7 +17,8 @@ pub fn config_schema(props: &Props) -> Html {
     {
         let widget_name = props.widget_name.clone();
         let state_clone = state.clone();
-        use_effect_with_deps(
+        use_effect_with(
+            (),
             move |_| {
                 wasm_bindgen_futures::spawn_local(async move {
                     let response = Request::get(format!("/config_schema/{}", widget_name).as_str())
@@ -29,7 +30,6 @@ pub fn config_schema(props: &Props) -> Html {
                 });
                 || {}
             },
-            (),
         );
     }
 

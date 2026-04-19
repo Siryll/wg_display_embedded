@@ -7,7 +7,7 @@ use gloo_net::http::Request;
 use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlButtonElement, HtmlInputElement};
 use yew::prelude::*;
-use yew_feather::{Download, Loader};
+use yew_icons::{Icon, IconData};
 use yew_router::prelude::*;
 
 async fn load_store_items(
@@ -84,14 +84,13 @@ pub fn install() -> Html {
     {
         let widget_store_items = widget_store_items.clone();
         let error = error.clone();
-        use_effect_with_deps(
+        use_effect_with(
+            (),
             move |_| {
                 wasm_bindgen_futures::spawn_local(async move {
                     load_store_items(widget_store_items, error).await;
                 });
             },
-            // Run only on first render (no dependencies)
-            (),
         );
     }
 
@@ -168,7 +167,7 @@ pub fn install() -> Html {
                         <img src="assets/logo.png" alt="" class="h-24 object-contain py-4"/>
                         if *is_installing {
                             <div class="flex justify-center items-center pb-4">
-                                <Loader class="animate-spin mr-2"/>
+                                <Icon data={IconData::LUCIDE_LOADER_2} class="mr-2 animate-spin" width={"1rem"} height={"1rem"}/>
                                 <span class="text-black text-sm">{"Installing widget..."}</span>
                             </div>
                         }
@@ -179,7 +178,7 @@ pub fn install() -> Html {
                                 <div class="flex flex-row justify-between">
                                     <input name="url" type="text" onchange={on_changed_url} class="rounded-sm pl-2 bg-transparent text-white mr-4" placeholder="Url"/>
                                     <button class="text-gray-300 text-sm font-semibold" onclick={on_install_widget_from_url} disabled={*is_installing}>
-                                        <Download/>
+                                        <Icon data={IconData::LUCIDE_DOWNLOAD} width={"1rem"} height={"1rem"}/>
                                     </button>
                                 </div>
                             </ConfigCardComponent>

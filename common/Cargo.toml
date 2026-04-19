@@ -12,8 +12,8 @@ yew = ["dep:yew", "dep:gloo-net", "dep:gloo-console", "dep:wasm-bindgen", "dep:w
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
-yew = { version = "0.20.0", features = ["csr"], optional = true }
-gloo-net = { version = "0.4.0", optional = true }
-gloo-console = { version = "0.3.0", optional = true }
-wasm-bindgen = { version = "0.2.95", optional = true }
+yew = { version = "0.23.0", features = ["csr"], optional = true }
+gloo-net = { version = "0.7.0", optional = true }
+gloo-console = { version = "0.4.0", optional = true }
+wasm-bindgen = { version = "0.2.118", optional = true }
 wasm-bindgen-futures = { version = "0.4.45", optional = true }
