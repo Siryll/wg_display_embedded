@@ -26,7 +26,7 @@ Flash the latest firmware directly from your browser — no drivers or toolchain
 
 ## Setup
 
-After installation connect to the open `Wg Display AP` WiFi network, open your browser and navigate to [http://192.168.2.1].
+After installation connect to the `Wg Display AP` WiFi network with the password `wgdisplay123`, open your browser and navigate to [http://192.168.2.1].
 Set the SSID and password of your local home wifi and press `Save and reboot`, the device will reboot and connect to your local network.
 The device address will be visible on the display, opening this address in your browser will allow you to configure and install widgets.
 

@@ -2,9 +2,9 @@
 
 Port of the [wg_display](https://github.com/eliabieri/wg_display) running on the ESP32-S3-Box-3.
 
-## Install
+## Install & Setup
 
-Install the latest release directly to the ESP32-S3-Box-3 from [here](https://siryll.github.io/wg_display_embedded/).
+Install the latest release directly to the ESP32-S3-Box-3 by following the setup [here](https://siryll.github.io/wg_display_embedded/).
 
 ## Building from source
 ### Requirements
@@ -51,3 +51,5 @@ To use the larger font use:
 ```bash
 make run-large-font
 ```
+
+Now follow the setup steps [here](https://siryll.github.io/wg_display_embedded/) to complete the setup.
