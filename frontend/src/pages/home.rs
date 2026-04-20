@@ -3,8 +3,8 @@ use gloo_console::log;
 use gloo_net::http::Request;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlButtonElement, MouseEvent};
-use yew::{Callback, Html, function_component, html, use_effect_with_deps, use_reducer, use_state};
-use yew_feather::PlusCircle;
+use yew::{Callback, Html, function_component, html, use_effect_with, use_reducer, use_state};
+use yew_icons::{Icon, IconData};
 use yew_router::prelude::Link;
 
 use crate::components::background_color_config::BackgroundColorConfigComponent;
@@ -24,31 +24,27 @@ pub fn home() -> Html {
         // Initializes the system configuration
         let config_clone = system_config.clone();
         let error = error.clone();
-        use_effect_with_deps(
-            move |_| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    let response = Request::get("/system_config").send().await;
-                    let Ok(response) = response else {
-                        error.set(Some("Failed to load system config".to_string()));
-                        return;
-                    };
+        use_effect_with((), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                let response = Request::get("/system_config").send().await;
+                let Ok(response) = response else {
+                    error.set(Some("Failed to load system config".to_string()));
+                    return;
+                };
 
-                    let received_config = response.json::<SystemConfiguration>().await;
-                    let Ok(received_config) = received_config else {
-                        error.set(Some("Failed to parse system config".to_string()));
-                        return;
-                    };
+                let received_config = response.json::<SystemConfiguration>().await;
+                let Ok(received_config) = received_config else {
+                    error.set(Some("Failed to parse system config".to_string()));
+                    return;
+                };
 
-                    log!(format!(
-                        "Initialized with system config: {received_config:?}"
-                    ));
-                    config_clone
-                        .dispatch(SystemConfigurationAction::SetInitialConfig(received_config));
-                });
-                || {}
-            },
-            (),
-        );
+                log!(format!(
+                    "Initialized with system config: {received_config:?}"
+                ));
+                config_clone.dispatch(SystemConfigurationAction::SetInitialConfig(received_config));
+            });
+            || {}
+        });
     }
 
     let on_deinstall_widget = {
@@ -134,7 +130,10 @@ pub fn home() -> Html {
 
                             <div class="flex flex-col items-center pt-4">
                                 <div type="button" class=" text-zinc-700 hover:bg-zinc-500 hover:text-white active:bg-zinc-500 font-bold text-sm px-3 py-1 rounded outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150">
-                                    <Link<Route> to={Route::Install}><PlusCircle></PlusCircle></Link<Route>>
+                                    <Link<Route> to={Route::Install} classes="flex items-center gap-2">
+                                        <Icon data={IconData::LUCIDE_PLUS_CIRCLE} width={"1rem"} height={"1rem"}/>
+                                        {"Install widget"}
+                                    </Link<Route>>
                                 </div>
                             </div>
 

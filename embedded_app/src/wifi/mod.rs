@@ -15,11 +15,13 @@ use esp_alloc as _;
 use esp_hal::rng::Rng;
 use esp_hal::system::software_reset;
 use esp_radio::wifi::{
-    AccessPointConfig, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent,
+    AccessPointConfig, AuthMethod, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent,
     WifiStaState,
 };
 
 const AP_GATEWAY_IP: &str = "192.168.2.1";
+const AP_SSID: &str = "WG Display AP";
+const AP_PASSWORD: &str = "wgdisplay123";
 const MAX_STATION_CONNECT_RETRIES: u8 = 8;
 
 #[allow(
@@ -73,7 +75,10 @@ impl Wifi {
             (
                 interfaces.ap,
                 ModeConfig::AccessPoint(
-                    AccessPointConfig::default().with_ssid("WG Display AP".to_string()),
+                    AccessPointConfig::default()
+                        .with_ssid(AP_SSID.to_string())
+                        .with_auth_method(AuthMethod::Wpa2Personal)
+                        .with_password(AP_PASSWORD.to_string()),
                 ),
                 embassy_net::Config::ipv4_static(StaticConfigV4 {
                     address: Ipv4Cidr::new(Ipv4Addr::new(192, 168, 2, 1), 24),

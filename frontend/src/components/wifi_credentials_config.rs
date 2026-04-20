@@ -65,21 +65,18 @@ pub fn wifi_credentials_config_component(props: &WifiCredentialsConfigProps) -> 
     {
         let show_form = show_form.clone();
         let error = props.error.clone();
-        use_effect_with_deps(
-            move |_| {
-                wasm_bindgen_futures::spawn_local(async move {
-                    match is_ap_mode().await {
-                        Ok(is_ap) => show_form.set(is_ap),
-                        Err(message) => {
-                            error.set(Some(message));
-                            show_form.set(false);
-                        }
+        use_effect_with((), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                match is_ap_mode().await {
+                    Ok(is_ap) => show_form.set(is_ap),
+                    Err(message) => {
+                        error.set(Some(message));
+                        show_form.set(false);
                     }
-                });
-                || {}
-            },
-            (),
-        );
+                }
+            });
+            || {}
+        });
     }
 
     if !*show_form {

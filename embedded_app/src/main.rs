@@ -23,6 +23,7 @@ use esp_rtos::embassy::Executor;
 use static_cell::StaticCell;
 
 mod wifi;
+use crate::display::DisplayPeripherals;
 use crate::wifi::Wifi;
 
 mod util;
@@ -100,16 +101,16 @@ async fn main(spawner: Spawner) -> ! {
     globals::init_storage(storage).await;
 
     // -- Display setup --
-    let display = Display::new(
-        peripherals.SPI2,
-        peripherals.DMA_CH0,
-        peripherals.GPIO4,
-        peripherals.GPIO5,
-        peripherals.GPIO6,
-        peripherals.GPIO7,
-        peripherals.GPIO47,
-        peripherals.GPIO48,
-    );
+    let display = Display::new(DisplayPeripherals {
+        spi2: peripherals.SPI2,
+        dma_ch0: peripherals.DMA_CH0,
+        gpio4: peripherals.GPIO4,
+        gpio5: peripherals.GPIO5,
+        gpio6: peripherals.GPIO6,
+        gpio7: peripherals.GPIO7,
+        gpio47: peripherals.GPIO47,
+        gpio48: peripherals.GPIO48,
+    });
 
     globals::init_display(display).await;
 
