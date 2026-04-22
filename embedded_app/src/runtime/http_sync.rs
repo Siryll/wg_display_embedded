@@ -27,44 +27,9 @@ use esp_rtos::CurrentThreadHandle;
 /// An HTTP request queued from the synchronous widget side to the async handler.
 #[derive(Clone)]
 pub struct HttpRequest {
-    pub method: BridgeMethod,
+    pub method: reqwless::request::Method,
     pub url: String,
     pub body: Option<Vec<u8>>,
-}
-
-/// HTTP method variants used by the bridge
-#[derive(Clone, Copy, PartialEq)]
-pub enum BridgeMethod {
-    Get,
-    Post,
-    Put,
-    Delete,
-    Head,
-    /// uses [`EspHttpClient::download`](crate::http_client::EspHttpClient::download) for large file downloads with automatic redirects.
-    Download, // special method to allow for large file download and automatic re-direction
-}
-
-impl BridgeMethod {
-    fn as_str(self) -> &'static str {
-        match self {
-            BridgeMethod::Get => "GET",
-            BridgeMethod::Post => "POST",
-            BridgeMethod::Put => "PUT",
-            BridgeMethod::Delete => "DELETE",
-            BridgeMethod::Head => "HEAD",
-            BridgeMethod::Download => "DOWNLOAD",
-        }
-    }
-
-    fn to_reqwless(self) -> reqwless::request::Method {
-        match self {
-            BridgeMethod::Get | BridgeMethod::Download => reqwless::request::Method::GET,
-            BridgeMethod::Post => reqwless::request::Method::POST,
-            BridgeMethod::Put => reqwless::request::Method::PUT,
-            BridgeMethod::Delete => reqwless::request::Method::DELETE,
-            BridgeMethod::Head => reqwless::request::Method::HEAD,
-        }
-    }
 }
 
 pub type HttpResponse = Result<http::Response, ()>;
@@ -74,13 +39,7 @@ static HTTP_RESPONSE_CHANNEL: Channel<CriticalSectionRawMutex, HttpResponse, 1> 
 const ASYNC_BRIDGE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Asynchronous HTTP request function callable from async context.
-pub async fn http_request_async(
-    method: BridgeMethod,
-    url: String,
-    body: Option<Vec<u8>>,
-) -> Result<http::Response, ()> {
-    let request = HttpRequest { method, url, body };
-
+pub async fn http_request_async(request: HttpRequest) -> Result<http::Response, ()> {
     match with_timeout(ASYNC_BRIDGE_TIMEOUT, HTTP_REQUEST_CHANNEL.send(request)).await {
         Ok(()) => {}
         Err(_) => {
@@ -100,26 +59,11 @@ pub async fn http_request_async(
 
 /// Synchronous HTTP request function called from WIT host functions
 /// Widget execution is halted until this function returns or times out.
-pub fn http_request_sync(
-    method: http::Method,
-    url: String,
-    body: Option<Vec<u8>>,
-) -> Result<http::Response, ()> {
-    let method = match method {
-        http::Method::Get => BridgeMethod::Get,
-        http::Method::Post => BridgeMethod::Post,
-        http::Method::Put => BridgeMethod::Put,
-        http::Method::Delete => BridgeMethod::Delete,
-        http::Method::Head => BridgeMethod::Head,
-    };
-
+pub fn http_request_sync(request: HttpRequest) -> Result<http::Response, ()> {
     info!(
-        "http_request_sync: sending {} request to {}",
-        method.as_str(),
-        url.as_str()
+        "http_request_sync: sending request to {}",
+        request.url.as_str()
     );
-
-    let request = HttpRequest { method, url, body };
 
     // Send request to async handler task.
     match HTTP_REQUEST_CHANNEL.try_send(request) {
@@ -170,53 +114,19 @@ pub async fn http_handler_task(stack: Stack<'static>, _tls_seed: u64) {
         // Wait for incoming request
         let request = HTTP_REQUEST_CHANNEL.receive().await;
 
-        defmt::info!(
-            "Processing HTTP {} request to: {=str}",
-            request.method.as_str(),
-            request.url.as_str()
-        );
+        defmt::info!("Processing HTTP request to: {=str}", request.url.as_str());
 
-        // Get HTTP client and execute request
-        defmt::info!("Created HTTP request object, executing...");
-
+        // execute request
         defmt::info!("HTTP handler: executing request");
-        let response_result = async {
-            match request.method {
-                BridgeMethod::Download => http_client.download(&request.url).await.map_err(|e| {
-                    defmt::error!(
-                        "HTTP handler download failed: {:?}",
-                        defmt::Debug2Format(&e)
-                    );
-                }),
-                _ => http_client
-                    .request(
-                        request.method.to_reqwless(),
-                        &request.url,
-                        request.body.as_deref(),
-                    )
-                    .await
-                    .map_err(|e| {
-                        defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));
-                    }),
-            }
-        }
-        .await;
-
-        // Convert to WIT response type
-        let response = response_result.map(|response_bytes| {
-            defmt::info!(
-                "HTTP request succeeded, {} bytes received",
-                response_bytes.len()
-            );
-            http::Response {
-                status: 200, // TODO: get actual status from reqwless
-                content_length: Some(u64::try_from(response_bytes.len()).unwrap_or(0)),
-                bytes: response_bytes,
-            }
-        });
+        let response_result = http_client
+            .request(request.method, &request.url, request.body.as_deref())
+            .await
+            .map_err(|e| {
+                defmt::error!("HTTP handler request failed: {:?}", defmt::Debug2Format(&e));
+            });
 
         // Send response back
-        HTTP_RESPONSE_CHANNEL.send(response).await;
+        HTTP_RESPONSE_CHANNEL.send(response_result).await;
         defmt::info!("HTTP response sent back to caller");
     }
 }

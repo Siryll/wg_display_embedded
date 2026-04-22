@@ -1,5 +1,5 @@
 //! Remote widget store catalog fetched from GitHub.
-use crate::runtime::http_sync::{self, BridgeMethod};
+use crate::runtime::http_sync::{self};
 use alloc::string::FromUtf8Error;
 use alloc::vec::Vec;
 use common::models::WidgetStoreItem;
@@ -63,11 +63,11 @@ impl WidgetStore {
     /// An error if the fetch failed
     pub async fn fetch_from_store(&mut self) -> Result<(), WidgetStoreError> {
         info!("Fetching widget store from {}", WIDGET_LISTING_URL);
-        let response = http_sync::http_request_async(
-            BridgeMethod::Get,
-            alloc::string::String::from(WIDGET_LISTING_URL),
-            None,
-        )
+        let response = http_sync::http_request_async(http_sync::HttpRequest {
+            method: reqwless::request::Method::GET,
+            url: alloc::string::String::from(WIDGET_LISTING_URL),
+            body: None,
+        })
         .await
         .map_err(|_| WidgetStoreError::Http("HTTP bridge request failed"))?;
 

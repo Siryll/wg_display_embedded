@@ -3,6 +3,7 @@
 #![doc = "```"]
 
 use crate::runtime::WidgetState;
+use crate::runtime::http_sync::HttpRequest;
 use crate::runtime::http_sync::http_request_sync;
 use crate::runtime::widget::widget::http;
 use alloc::string::String;
@@ -18,7 +19,20 @@ impl http::Host for WidgetState {
         body: Option<Vec<u8>>,
     ) -> Result<http::Response, ()> {
         info!("HTTP host function called");
-        let response = http_request_sync(method, url, body);
+
+        let request_method = match method {
+            http::Method::Get => reqwless::request::Method::GET,
+            http::Method::Post => reqwless::request::Method::POST,
+            http::Method::Put => reqwless::request::Method::PUT,
+            http::Method::Delete => reqwless::request::Method::DELETE,
+            http::Method::Head => reqwless::request::Method::HEAD,
+        };
+
+        let response = http_request_sync(HttpRequest {
+            method: request_method,
+            url,
+            body,
+        });
 
         match response {
             Ok(resp) => {

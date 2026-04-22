@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use common::models::SystemConfiguration;
 
 use crate::runtime::Runtime;
-use crate::runtime::http_sync::{self, BridgeMethod};
+use crate::runtime::http_sync::{self};
 use crate::storage::StorageError;
 use crate::util::globals;
 use defmt::error;
@@ -55,11 +55,11 @@ impl WidgetManager {
         description: &str,
     ) -> Result<(), WidgetManagerError> {
         // let http_client = globals::http_client();
-        let response = http_sync::http_request_async(
-            BridgeMethod::Download,
-            alloc::string::String::from(download_url),
-            None,
-        )
+        let response = http_sync::http_request_async(http_sync::HttpRequest {
+            method: reqwless::request::Method::GET,
+            url: alloc::string::String::from(download_url),
+            body: None,
+        })
         .await
         .map_err(|_| WidgetManagerError::HttpError("HTTP bridge request failed"))?;
 
