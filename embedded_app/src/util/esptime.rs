@@ -3,7 +3,6 @@
 //! Time is fetched once at startup. Subsequent calls to [`EspTime::now`] compute
 //! the current time by adding the elapsed duration since the fetch.
 use crate::runtime::http_sync;
-use crate::runtime::http_sync::BridgeMethod;
 use crate::runtime::widget::widget::clocks::Datetime;
 use esp_hal::time::Instant;
 use serde::Deserialize;
@@ -37,11 +36,11 @@ impl EspTime {
     pub async fn fetch_time(&mut self) {
         // https://timeapi.io/swagger/index.html
         // returns unix time as json: { "unix_timestamp": 1774290895 }
-        let response = http_sync::http_request_async(
-            BridgeMethod::Get,
-            alloc::string::String::from("https://timeapi.io/api/v1/time/current/unix"),
-            None,
-        )
+        let response = http_sync::http_request_async(http_sync::HttpRequest {
+            method: reqwless::request::Method::GET,
+            url: alloc::string::String::from("https://timeapi.io/api/v1/time/current/unix"),
+            body: None,
+        })
         .await
         .expect("Failed to fetch time API response");
 
