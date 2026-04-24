@@ -235,4 +235,17 @@ impl<'d> Storage<'d> {
         let config = self.get_system_config()?;
         Ok(config.widgets.iter().map(|w| w.name.clone()).collect())
     }
+
+    pub fn save_framebuffer(&mut self, data: &[u8]) -> Result<(), StorageError> {
+        let ns = Key::from_str("framebuf");
+        let key = Key::from_str("rgb565");
+        self.nvs.set(&ns, &key, data)?;
+        Ok(())
+    }
+
+    pub fn get_framebuffer(&mut self) -> Result<alloc::vec::Vec<u8>, StorageError> {
+        let ns = Key::from_str("framebuf");
+        let key = Key::from_str("rgb565");
+        Ok(self.nvs.get(&ns, &key)?)
+    }
 }

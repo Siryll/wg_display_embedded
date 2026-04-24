@@ -3,6 +3,7 @@
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use embedded_graphics::prelude::IntoStorage;
 
 use common::models::SystemConfiguration;
 use defmt::{error, info};
@@ -73,6 +74,7 @@ pub struct Renderer {
     background_color: Rgb565,
     runtime: Runtime,
     ip_address: String,
+    framebuffer_stored: bool,
 }
 
 impl Renderer {
@@ -84,6 +86,7 @@ impl Renderer {
             background_color: Rgb565::BLACK,
             runtime: Runtime::new(),
             ip_address: "IP unknown".to_string(),
+            framebuffer_stored: false,
         }
     }
 
@@ -152,6 +155,10 @@ impl Renderer {
 
             self.update_widgets().await;
             self.render_layout().await;
+
+            if !self.framebuffer_stored {
+                self.store_framebuffer().await;
+            }
 
             // wait for 1 second minus the elapes time in this loop
             // will skip if loop took longer than 1 second
@@ -306,6 +313,30 @@ impl Renderer {
             );
         })
         .await;
+    }
+
+    // store framebuffer
+    // optain with curl -sS -o framebuffer.rgb565 http://ADDRESS/framebuffer
+    // convert to png ffmpeg -f rawvideo -pixel_format rgb565be -video_size 320x240 -i framebuffer.rgb565 -frames:v 1 framebuffer.png
+    async fn store_framebuffer(&mut self) {
+        let mut bytes = Vec::with_capacity(DISPLAY_PIXELS * 2);
+        for pixel in self.framebuffer.iter() {
+            let raw: u16 = (*pixel).into_storage();
+            bytes.extend_from_slice(&raw.to_be_bytes());
+        }
+
+        match globals::with_storage(|storage| storage.save_framebuffer(&bytes)).await {
+            Ok(()) => {
+                self.framebuffer_stored = true;
+                info!("Stored framebuffer snapshot ({} bytes)", bytes.len());
+            }
+            Err(err) => {
+                error!(
+                    "Failed to store framebuffer snapshot: {:?}",
+                    defmt::Debug2Format(&err)
+                );
+            }
+        }
     }
 }
 

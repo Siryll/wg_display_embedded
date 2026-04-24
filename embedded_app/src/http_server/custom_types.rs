@@ -58,6 +58,29 @@ impl IntoResponse for JsonStringResponse {
     }
 }
 
+/// response type for frambuffer
+pub struct Framebuffer {
+    pub data: alloc::vec::Vec<u8>,
+}
+
+impl IntoResponse for Framebuffer {
+    async fn write_to<
+        R: picoserve::io::Read,
+        W: picoserve::response::ResponseWriter<Error = R::Error>,
+    >(
+        self,
+        connection: picoserve::response::Connection<'_, R>,
+        response_writer: W,
+    ) -> Result<picoserve::ResponseSent, W::Error> {
+        (
+            ("Content-Type", "application/octet-stream"),
+            self.data.as_slice(),
+        )
+            .write_to(connection, response_writer)
+            .await
+    }
+}
+
 /// Wrapper for parsing JSON response from [`http_server::post_widget_config`](crate::http_server::post_widget_config).
 #[derive(Deserialize)]
 pub struct ConfigWrapper {

@@ -61,7 +61,7 @@ use common::models::{InstallAction, SystemConfiguration, WifiCredentials, WifiMo
 mod custom_types;
 mod frontend;
 
-use custom_types::{ConfigWrapper, Error, HandlerResult, JsonStringResponse};
+use custom_types::{ConfigWrapper, Error, Framebuffer, HandlerResult, JsonStringResponse};
 
 pub const WEB_TASK_POOL_SIZE: usize = 2;
 const TCP_BUFFER_SIZE: usize = 8192;
@@ -122,6 +122,7 @@ impl AppBuilder for Application {
                     &[INDEX_CACHE_HEADER],
                 )),
             )
+            .route("/framebuffer", routing::get(get_framebuffer))
             // routes to serve frontend files
             .route(
                 "/",
@@ -422,6 +423,15 @@ async fn post_widget_config(
     globals::with_storage(|storage| storage.save_system_config(&system_config))
         .await
         .map_err(|e| Error::new(format!("Failed to save widget config: {:?}", e)))
+}
+
+/// Returns the first rendered framebuffer snapshot as raw RGB565 bytes.
+async fn get_framebuffer() -> HandlerResult<Framebuffer> {
+    let data = globals::with_storage(|storage| storage.get_framebuffer())
+        .await
+        .map_err(|e| Error::new(format!("Failed to load framebuffer snapshot: {:?}", e)))?;
+
+    Ok(Framebuffer { data })
 }
 
 pub struct WebApp {
