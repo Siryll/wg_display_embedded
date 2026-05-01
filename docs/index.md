@@ -6,7 +6,7 @@ layout: default
 
 ## ⚡ One-Click Install
 
-Flash the latest firmware directly from your browser — no drivers or toolchain required.
+Flash the latest firmware directly from your browser:
 
 <esp-web-install-button manifest="manifest.json">
   <button slot="activate">Install / Update Firmware</button>
