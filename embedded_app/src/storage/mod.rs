@@ -4,6 +4,8 @@
 //! - `"config"` — for all config related data. Stores WIFI Name and Password and [`SystemConfiguration`].
 //! - `"wasm"` — precompiled widget WASM binaries, name hashed to fit NVS key length limit with [`Hasher`].
 use crate::util::hasher::Hasher;
+use alloc::format;
+use common::models::WifiCredentials;
 use common::models::{SystemConfiguration, WidgetInstallationData};
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;
@@ -194,27 +196,66 @@ impl<'d> Storage<'d> {
         Ok(self.nvs.get(&ns, &k)?)
     }
 
-    /// Writes a raw WASM binary to the `"wasm"` NVS namespace.
+    pub fn set_wifi_credentials_and_mode(
+        &mut self,
+        credentials: WifiCredentials,
+        wifi_mode: &str,
+    ) -> Result<(), StorageError> {
+        self.config_set("ssid", &credentials.ssid)?;
+        self.config_set("pw", &credentials.password)?;
+        self.config_set("wifi_mode", wifi_mode)?;
+        Ok(())
+    }
+
+    pub fn get_wifi_credentials(&mut self) -> Result<WifiCredentials, StorageError> {
+        let ssid = self.config_get("ssid")?;
+        let password = self.config_get("pw")?;
+
+        Ok(WifiCredentials { ssid, password })
+    }
+
+    /// Writes a raw WASM binary to the `"wasm"` NVS namespace, saved in chunks to fit NVS entry limt.
+    /// Number of chunks stored under "<name>-parts" key.
     pub fn wasm_write(&mut self, name: &str, data: &[u8]) -> Result<(), StorageError> {
-        let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
-        info!(
-            "Writing WASM binary with name: '{}' and key: {:?}",
-            name, key
-        );
-        self.nvs.set(&ns, &key, data)?;
+        let max_chunk_size = 500 * 1000; // max size of one NVS entry
+        let mut part = 0;
+        for chunk in data.chunks(max_chunk_size).enumerate() {
+            let key = self.wasm_key_from_name(&format!("{}-{}", name, part));
+            info!(
+                "Writing WASM binary part with name: '{}' and key: {:?}",
+                name, key
+            );
+            self.nvs.set(&ns, &key, chunk.1)?;
+            part += 1;
+        }
+
+        // store meta data about number of parts
+        let hased_name = self.wasm_key_from_name(&format!("{}-parts", name));
+        self.nvs.set(&ns, &hased_name, part)?;
         Ok(())
     }
 
     /// Reads a previously stored WASM binary from the `"wasm"` NVS namespace.
     pub fn wasm_read(&mut self, name: &str) -> Result<alloc::vec::Vec<u8>, StorageError> {
-        let key = self.wasm_key_from_name(name);
         let ns = Key::from_str("wasm");
-        info!(
-            "Reading WASM binary with name: '{}' and key: {:?}",
-            name, key
-        );
-        Ok(self.nvs.get(&ns, &key)?)
+        let parts_key = self.wasm_key_from_name(&format!("{}-parts", name));
+        let num_parts = self.nvs.get(&ns, &parts_key)?;
+
+        let mut data = alloc::vec::Vec::new();
+
+        for part in 0..num_parts {
+            let key = self.wasm_key_from_name(&format!("{}-{}", name, part));
+
+            info!(
+                "Reading WASM binary part with name: '{}' and key: {:?}",
+                name, key
+            );
+
+            let mut part_data = self.nvs.get(&ns, &key)?;
+            data.append(&mut part_data);
+        }
+        Ok(data)
     }
 
     /// Deletes a WASM binary from the `"wasm"` NVS namespace.

@@ -117,8 +117,7 @@ async fn main(spawner: Spawner) -> ! {
     globals::console_println("WG-Display starting up").await;
 
     // -- Wifi setup --
-    let ssid = globals::with_storage(|storage| storage.config_get("ssid")).await;
-    let password = globals::with_storage(|storage| storage.config_get("pw")).await;
+    let wifi_creds = globals::with_storage(|storage| storage.get_wifi_credentials()).await;
 
     // check current wifi mode, if nothing is set (first boot) or wifi connection fails this will be set to ap (Access Point) mode
     // otherwise the device will start in station mode and try to connect to the set wifi network, will switch back to ap mode if this fails
@@ -130,41 +129,41 @@ async fn main(spawner: Spawner) -> ! {
     let wifi_peripheral = peripherals.WIFI;
     // start in station mode
     if !force_ap_mode {
-        if let (Ok(ssid), Ok(password)) = (ssid, password) {
-            start_station_mode(wifi_peripheral, &spawner, ssid, password).await;
+        // check if wifi credentials are present, otherwise swicht to ap mode
+        match wifi_creds {
+            Ok(creds) => {
+                start_station_mode(wifi_peripheral, &spawner, creds.ssid, creds.password).await;
+                // -- Init and start widget runner on second core --
+                static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
+                let app_core_stack = APP_CORE_STACK.init(CoreStack::new());
 
-            // -- Init and start widget runner on second core --
-            static APP_CORE_STACK: StaticCell<CoreStack<32768>> = StaticCell::new();
-            let app_core_stack = APP_CORE_STACK.init(CoreStack::new());
+                esp_rtos::start_second_core(
+                    peripherals.CPU_CTRL,
+                    sw_int.software_interrupt0,
+                    sw_int.software_interrupt1,
+                    app_core_stack,
+                    || {
+                        static CORE1_EXECUTOR: StaticCell<Executor> = StaticCell::new();
+                        let executor = CORE1_EXECUTOR.init(Executor::new());
 
-            esp_rtos::start_second_core(
-                peripherals.CPU_CTRL,
-                sw_int.software_interrupt0,
-                sw_int.software_interrupt1,
-                app_core_stack,
-                || {
-                    static CORE1_EXECUTOR: StaticCell<Executor> = StaticCell::new();
-                    let executor = CORE1_EXECUTOR.init(Executor::new());
-
-                    executor.run(|core1_spawner| {
-                        core1_spawner
-                            .spawn(widget_runner())
-                            .expect("Failed to spawn widget runner on core1");
-                        info!("Widget runner task spawned on core1");
-                    });
-                },
-            );
-        } else {
-            info!("WiFi credentials not configured, switching to AP mode");
-            start_ap_mode(wifi_peripheral, &spawner).await;
+                        executor.run(|core1_spawner| {
+                            core1_spawner
+                                .spawn(widget_runner())
+                                .expect("Failed to spawn widget runner on core1");
+                            info!("Widget runner task spawned on core1");
+                        });
+                    },
+                );
+            }
+            Err(_) => {
+                info!("WiFi credentials not found in storage, starting in AP mode");
+                start_ap_mode(wifi_peripheral, &spawner).await;
+            }
         }
     } else {
         info!("WiFi mode is set to AP, starting in AP mode");
         start_ap_mode(wifi_peripheral, &spawner).await;
     }
-
-    // TODO: Spawn some tasks
-    // let _ = spawner;
 
     // TODO: button for move to AP mode.
     loop {
