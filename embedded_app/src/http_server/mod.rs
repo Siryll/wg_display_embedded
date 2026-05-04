@@ -301,8 +301,7 @@ async fn get_wifi_mode() -> HandlerResult<Json<WifiModeResponse>> {
 
 /// receives wifi credentials from the frontend, saves them to storage and reboots
 async fn post_wifi_credentials(Json(credentials): Json<WifiCredentials>) -> HandlerResult<()> {
-    let ssid = credentials.ssid;
-    let password = credentials.password;
+    let ssid = credentials.ssid.clone();
 
     if ssid.trim().is_empty() {
         return Err(Error::new("SSID must not be empty"));
@@ -311,9 +310,7 @@ async fn post_wifi_credentials(Json(credentials): Json<WifiCredentials>) -> Hand
     info!("Received WiFi credentials for SSID '{}'", ssid.as_str());
 
     globals::with_storage(|storage| {
-        storage.config_set("ssid", ssid.as_str())?;
-        storage.config_set("pw", password.as_str())?;
-        storage.config_set("wifi_mode", "station")?;
+        storage.set_wifi_credentials_and_mode(credentials, "station")?;
         Ok::<(), crate::storage::StorageError>(())
     })
     .await

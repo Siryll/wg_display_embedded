@@ -5,6 +5,7 @@
 //! - `"wasm"` — precompiled widget WASM binaries, name hashed to fit NVS key length limit with [`Hasher`].
 use crate::util::hasher::Hasher;
 use alloc::format;
+use common::models::WifiCredentials;
 use common::models::{SystemConfiguration, WidgetInstallationData};
 use defmt::info;
 use esp_bootloader_esp_idf::partitions;
@@ -193,6 +194,24 @@ impl<'d> Storage<'d> {
         let ns = Key::from_str("config");
         let k = Key::from_str(key);
         Ok(self.nvs.get(&ns, &k)?)
+    }
+
+    pub fn set_wifi_credentials_and_mode(
+        &mut self,
+        credentials: WifiCredentials,
+        wifi_mode: &str,
+    ) -> Result<(), StorageError> {
+        self.config_set("ssid", &credentials.ssid)?;
+        self.config_set("pw", &credentials.password)?;
+        self.config_set("wifi_mode", wifi_mode)?;
+        Ok(())
+    }
+
+    pub fn get_wifi_credentials(&mut self) -> Result<WifiCredentials, StorageError> {
+        let ssid = self.config_get("ssid")?;
+        let password = self.config_get("pw")?;
+
+        Ok(WifiCredentials { ssid, password })
     }
 
     /// Writes a raw WASM binary to the `"wasm"` NVS namespace, saved in chunks to fit NVS entry limt.
