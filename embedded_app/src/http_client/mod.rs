@@ -34,13 +34,17 @@ pub struct EspHttpClient {
     tls_seed: u64,
 }
 
+const MAX_RESPONSE_SIZE: usize = 1024 * 1024; // 1 MiB
+const MAX_REDIRECTS: u8 = 5;
+
 impl EspHttpClient {
     /// Creates a new client from a network stack and TLS seed.
     pub fn new(stack: Stack<'static>, tls_seed: u64) -> Self {
         Self { stack, tls_seed }
     }
 
-    /// Sends an HTTP request to `url`, following up to 5 redirects automatically.
+    /// Sends an HTTP request to `url` with provided [`reqwless::request::Method`], following up to 5 redirects automatically (defined by [`MAX_REDIRECTS`]).
+    /// Max response body is defined by [`MAX_RESPONSE_SIZE`] (currently 1 MiB).
     ///
     /// # Errors
     /// Returns [`Error::Codec`] if the redirect limit is exceeded or a redirect
@@ -51,7 +55,6 @@ impl EspHttpClient {
         url: &str,
         body: Option<&[u8]>,
     ) -> Result<http::Response, Error> {
-        const MAX_REDIRECTS: u8 = 5;
         let mut current_url = alloc::string::String::from(url);
 
         for _ in 0..=MAX_REDIRECTS {
@@ -63,7 +66,7 @@ impl EspHttpClient {
 
             let mut rx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
             let mut tx_buffer = alloc::vec![0u8; 16640].into_boxed_slice();
-            let mut response_buffer = alloc::vec![0u8; 524288].into_boxed_slice();
+            let mut response_buffer = alloc::vec![0u8; MAX_RESPONSE_SIZE].into_boxed_slice();
 
             let tls = TlsConfig::new(
                 self.tls_seed,
