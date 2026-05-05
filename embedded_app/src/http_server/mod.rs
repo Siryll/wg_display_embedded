@@ -63,12 +63,12 @@ mod frontend;
 
 use custom_types::{ConfigWrapper, Error, HandlerResult, JsonStringResponse};
 
-pub const WEB_TASK_POOL_SIZE: usize = 2;
+pub const WEB_TASK_POOL_SIZE: usize = 5;
 const TCP_BUFFER_SIZE: usize = 8192;
 const HTTP_BUFFER_SIZE: usize = 16384;
 const INDEX_CACHE_HEADER: (&str, &str) = ("Cache-Control", "no-cache, no-store, must-revalidate");
 /// Asset http headers
-const ASSET_HEADER: (&str, &str) = ("Cache-Control", "no-cache, must-revalidate");
+const ASSET_HEADER: (&str, &str) = ("Cache-Control", "public, max-age=86400, immutable");
 
 pub struct Application;
 
