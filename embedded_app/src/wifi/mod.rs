@@ -13,7 +13,6 @@ use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
 use embassy_time::{Duration, Timer};
 use esp_alloc as _;
 use esp_hal::rng::Rng;
-use esp_hal::system::software_reset;
 use esp_radio::wifi::{
     AccessPointConfig, AuthMethod, ClientConfig, ModeConfig, WifiController, WifiDevice, WifiEvent,
     WifiStaState,
@@ -22,7 +21,6 @@ use esp_radio::wifi::{
 const AP_GATEWAY_IP: &str = "192.168.2.1";
 const AP_SSID: &str = "WG Display AP";
 const AP_PASSWORD: &str = "wgdisplay123";
-const MAX_STATION_CONNECT_RETRIES: u8 = 8;
 
 #[allow(
     clippy::large_stack_frames,

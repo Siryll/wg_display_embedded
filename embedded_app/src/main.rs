@@ -12,7 +12,7 @@
 use defmt::error;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_time::{Duration, Instant, Timer};
+use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Input, InputConfig, Pull};
 use esp_hal::interrupt::software::SoftwareInterruptControl;
@@ -166,7 +166,10 @@ async fn main(spawner: Spawner) -> ! {
         start_ap_mode(wifi_peripheral, &spawner).await;
     }
 
-    let boot_button = Input::new(peripherals.GPIO0, InputConfig::default().with_pull(Pull::Up));
+    let boot_button = Input::new(
+        peripherals.GPIO0,
+        InputConfig::default().with_pull(Pull::Up),
+    );
     let mut boot_button_timer = 0;
 
     loop {
@@ -174,7 +177,8 @@ async fn main(spawner: Spawner) -> ! {
             boot_button_timer += 1;
             if boot_button_timer >= 100 {
                 globals::console_println("Boot button held, resetting WiFi settings").await;
-                let _ =globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
+                let _ =
+                    globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
                 software_reset();
             }
         }
