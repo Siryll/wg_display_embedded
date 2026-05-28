@@ -1,55 +1,80 @@
-# WG Display Embedded!
+<p align="center">
+	<img src="docs/logo.png" alt="WG Display Embedded" width="640" />
+</p>
 
-Port of the [wg_display](https://github.com/eliabieri/wg_display) running on the ESP32-S3-Box-3.
+<p align="center">
+	<a href="https://github.com/Siryll/wg_display_embedded/actions/workflows/rust_ci.yml"><img src="https://github.com/Siryll/wg_display_embedded/actions/workflows/rust_ci.yml/badge.svg" alt="Rust CI" /></a>
+	<a href="https://github.com/Siryll/wg_display_embedded/actions/workflows/pages.yml"><img src="https://github.com/Siryll/wg_display_embedded/actions/workflows/pages.yml/badge.svg" alt="Pages Deploy" /></a>
+	<a href="https://github.com/Siryll/wg_display_embedded/releases"><img src="https://img.shields.io/github/v/release/Siryll/wg_display_embedded" alt="Latest Release" /></a>
+	<a href="https://github.com/Siryll/wg_display_embedded/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Siryll/wg_display_embedded" alt="License" /></a>
+</p>
 
-## Install & Setup
+<p align="center">
+	A hackable information display for the ESP32-S3-Box-3, based on
+	<a href="https://github.com/eliabieri/wg_display">wg_display</a>.
+</p>
 
-Install the latest release directly to the ESP32-S3-Box-3 by following the setup [here](https://siryll.github.io/wg_display_embedded/).
+<p align="center">
+	<a href="https://siryll.github.io/wg_display_embedded/"><strong>Quick Setup Guide</strong></a>
+</p>
 
-## Building from source
+## Quick Start
+
+If you just want to install and run the latest version on your ESP32-S3-Box-3,
+follow the hosted setup guide. No toolchain installation required!
+
+- [Install and setup instructions](https://siryll.github.io/wg_display_embedded/)
+
+## Build From Source
+
 ### Requirements
+
 - [rustup](https://rustup.rs/)
 - [espup](https://docs.espressif.com/projects/rust/book/getting-started/toolchain.html#xtensa-devices)
-- [NPM/Node](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-- The [ESP32-S3-Box-3](https://github.com/espressif/esp-box/blob/master/docs/hardware_overview/esp32_s3_box_3/hardware_overview_for_box_3.md)
+- [Node.js and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+- The [ESP32-S3-Box-3](https://github.com/espressif/esp-box/blob/master/docs/hardware_overview/esp32_s3_box_3/hardware_overview_for_box_3.md) development board
 
-When using WSL follow the [WSL instructions for ESP](https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/additionalfeatures/wsl.html#adding-the-required-linux-packages-in-wsl) instructions for the correct setup.
+When using WSL complete the required ESP packages first tlowe [WSL instructions for ESP](https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/additionalfeatures/wsl.html#adding-the-required-linux-packages-in-wsl) instructions for the correct setup.
 
-### Installation
-For `picoserve` the 1.93.0 pre-release version of the espup rust compiled is needed, install it with:
+### Toolchain Setup
+
+For `picoserve`, use the 1.93.0 pre-release toolchain via `espup`:
+
 ```bash
 espup install --toolchain-version 1.93.0
 ```
 
-The frontend requires [Trunk](https://crates.io/crates/trunk) to build:
+Install Trunk for the frontend build:
+
 ```bash
 cargo install trunk
 ```
 
-### Build
-Clone the repo:
+### Build And Run
+
 ```bash
 git clone https://github.com/Siryll/wg_display_embedded.git
-```
-
-Install dependencies:
-```bash
+cd wg_display_embedded
 make install-deps
-```
-
-Build the project:
-```bash
 make build
-```
-
-Flash to ESP:
-```bash
 make run
 ```
 
-To use the larger font use:
+Use larger font mode:
+
 ```bash
 make run-large-font
 ```
 
-Now follow the setup steps [here](https://siryll.github.io/wg_display_embedded/) to complete the setup.
+After flashing, continue with the setup:
+
+- [Post-flash setup guide](https://siryll.github.io/wg_display_embedded/)
+
+## Command Reference
+
+```bash
+make install-deps      # install project dependencies
+make build             # build firmware + frontend
+make run               # flash and run firmware
+make run-large-font    # flash and run with larger font
+```
