@@ -88,16 +88,6 @@ After flashing, continue with the setup:
 
 - [Post-flash setup guide](https://siryll.github.io/wg_display_embedded/)
 
-## Screenshots
-
-Project screenshots will appear here as they are added to the repository.
-
-Suggested additions:
-
-- Device photo running the dashboard
-- Web setup or configuration page
-- Widget gallery view
-
 ## Command Reference
 
 ```bash
