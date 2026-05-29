@@ -18,7 +18,6 @@ use crate::routing::router::Route;
 pub fn home() -> Html {
     let system_config = use_reducer(SystemConfiguration::default);
     let error = use_state(|| None as Option<String>);
-    
 
     {
         // Only runs on first render
