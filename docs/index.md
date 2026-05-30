@@ -37,6 +37,10 @@ Here widgets can be installed from the store or via a direct URL pointing to a w
 
 From the Web UI home page each installed widget can be configured, some widget will require this to work otherwise they will produce no output.
 
+### Resetting Wi-Fi config
+
+Press and hold the `Boot` button on the left of the ESP32-S3-Box-3 to delete the currently stored Wi-Fi config and return the device to AP mode. It will again ask you to connect to the AP and configure a new Wi-Fi connection.
+
 ---
 
 ## Manual Install

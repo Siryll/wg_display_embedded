@@ -14,6 +14,7 @@ use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Input, InputConfig, Pull};
 use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::system::Stack as CoreStack;
 use esp_hal::system::software_reset;
@@ -165,9 +166,28 @@ async fn main(spawner: Spawner) -> ! {
         start_ap_mode(wifi_peripheral, &spawner).await;
     }
 
-    // TODO: button for move to AP mode.
+    let boot_button = Input::new(
+        peripherals.GPIO0,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut boot_button_timer = 0;
+
     loop {
-        Timer::after(Duration::from_secs(100)).await;
+        if boot_button.is_low() {
+            boot_button_timer += 1;
+            if boot_button_timer >= 100 {
+                globals::console_println("Boot button held, resetting WiFi settings").await;
+                let _ =
+                    globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
+                software_reset();
+            }
+        }
+
+        if boot_button.is_high() && boot_button_timer != 0 {
+            boot_button_timer = 0;
+        }
+
+        Timer::after(Duration::from_millis(50)).await;
     }
 }
 
