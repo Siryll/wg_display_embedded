@@ -12,8 +12,6 @@ Flash the latest firmware directly from your browser:
   <button slot="activate">Install / Update Firmware</button>
 </esp-web-install-button>
 
-> **Supported browsers:** Chrome or Edge on desktop (requires Web Serial API).
-
 ---
 
 ## Requirements
