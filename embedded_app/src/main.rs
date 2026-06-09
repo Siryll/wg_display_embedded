@@ -128,6 +128,9 @@ async fn main(spawner: Spawner) -> ! {
     let force_ap_mode = wifi_mode == "ap";
 
     let wifi_peripheral = peripherals.WIFI;
+
+    spawner.spawn(reset_button_poll(peripherals.GPIO0)).ok();    
+
     // start in station mode
     if !force_ap_mode {
         // check if wifi credentials are present, otherwise swicht to ap mode
@@ -166,28 +169,8 @@ async fn main(spawner: Spawner) -> ! {
         start_ap_mode(wifi_peripheral, &spawner).await;
     }
 
-    let boot_button = Input::new(
-        peripherals.GPIO0,
-        InputConfig::default().with_pull(Pull::Up),
-    );
-    let mut boot_button_timer = 0;
-
     loop {
-        if boot_button.is_low() {
-            boot_button_timer += 1;
-            if boot_button_timer >= 100 {
-                globals::console_println("Boot button held, resetting WiFi settings").await;
-                let _ =
-                    globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
-                software_reset();
-            }
-        }
-
-        if boot_button.is_high() && boot_button_timer != 0 {
-            boot_button_timer = 0;
-        }
-
-        Timer::after(Duration::from_millis(50)).await;
+        Timer::after(Duration::from_millis(500)).await;
     }
 }
 
@@ -248,4 +231,32 @@ async fn widget_runner() {
     let mut renderer = renderer::Renderer::new();
     // will loop forever
     renderer.run().await;
+}
+
+#[embassy_executor::task]
+async fn reset_button_poll(gpio0: esp_hal::peripherals::GPIO0<'static>) -> ! {
+
+    let boot_button = Input::new(
+        gpio0,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut boot_button_timer = 0;
+
+    loop {
+        if boot_button.is_low() {
+            boot_button_timer += 1;
+            if boot_button_timer >= 100 {
+                globals::console_println("Boot button held, resetting WiFi settings").await;
+                let _ =
+                    globals::with_storage(|storage| storage.config_set("wifi_mode", "ap")).await;
+                software_reset();
+            }
+        }
+
+        if boot_button.is_high() && boot_button_timer != 0 {
+            boot_button_timer = 0;
+        }
+
+        Timer::after(Duration::from_millis(50)).await;
+    }
 }
