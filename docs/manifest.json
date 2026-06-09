@@ -1,6 +1,6 @@
 {
   "name": "WG Display Embedded",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "builds": [
     {
       "chipFamily": "ESP32-S3",

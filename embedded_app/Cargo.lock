@@ -1191,7 +1191,7 @@ dependencies = [
 
 [[package]]
 name = "embedded_wg_display"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "common",
  "critical-section",
