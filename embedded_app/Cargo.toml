@@ -3,7 +3,7 @@ edition      = "2024"
 license      = "MIT"
 name         = "embedded_wg_display"
 rust-version = "1.88"
-version      = "1.4.0"
+version      = "1.4.1"
 
 [[bin]]
 name = "embedded_wg_display"

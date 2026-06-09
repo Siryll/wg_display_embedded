@@ -129,7 +129,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let wifi_peripheral = peripherals.WIFI;
 
-    spawner.spawn(reset_button_poll(peripherals.GPIO0)).ok();    
+    spawner.spawn(reset_button_poll(peripherals.GPIO0)).ok();
 
     // start in station mode
     if !force_ap_mode {
@@ -235,11 +235,7 @@ async fn widget_runner() {
 
 #[embassy_executor::task]
 async fn reset_button_poll(gpio0: esp_hal::peripherals::GPIO0<'static>) -> ! {
-
-    let boot_button = Input::new(
-        gpio0,
-        InputConfig::default().with_pull(Pull::Up),
-    );
+    let boot_button = Input::new(gpio0, InputConfig::default().with_pull(Pull::Up));
     let mut boot_button_timer = 0;
 
     loop {
